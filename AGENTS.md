@@ -7,11 +7,12 @@
 - Exclude cloud hosting, paid APIs, authentication, billing, embedding pipelines, and distributed jobs. All runtime operation must be local and free.
 
 ## Technology and Architecture
-- Bootstrap state: repository began with README and Apache-2.0 license only. Update this section as modules land.
-- Target stack: React/TypeScript/Vite frontend, Python/FastAPI backend, SQLite metadata and local filesystem, CPU BM25. No model is required.
-- Keep datasets, normalization/retrieval, metrics, experiments, persistence, inference and reporting in focused backend modules. UI calls a same-origin `/api`.
+- Stack: React/TypeScript/Vite + Tailwind CSS frontend; Python/FastAPI backend; SQLite JSON snapshots on the local filesystem; CPU BM25 and NumPy bootstrap. No model is required.
+- `frontend/src/`: App workspace, FailureExplorer, JudgePanel and shared controls/styles. Native semantic forms keep dependencies small. English chrome, Arabic RTL content, light/dark modes.
+- `backend/`: schemas/datasets validate imports; normalization/retrieval implement BM25; metrics/experiments score and compare; storage persists; inference adapts local models; reporting exports; replay verifies bundles; main serves API + built frontend.
+- `tests/` covers correctness/integration; `examples/` contains synthetic import files; `scripts/` contains Windows helpers; ignored `data/` holds SQLite. UI calls same-origin `/api`; Vite proxies during development.
 - Pipeline: validated immutable dataset → versioned configuration → ranked passages → per-query metrics → paired comparison → diagnosis/report.
-- Optional inference accepts only loopback Ollama or OpenAI-compatible endpoints; record configuration, model identity, rubric, raw judgments and human reviews.
+- Optional inference accepts only loopback Ollama or OpenAI-compatible endpoints; record configuration, model identity, rubric, raw judgments and human reviews. No local model was installed during implementation; do not claim GPU inference was tested.
 - Trade-off: bounded synchronous local experiments keep operations simple; avoid premature services and abstractions.
 
 ## Engineering Principles
@@ -43,4 +44,13 @@
 6. Summarize functionality, checks and remaining limitations honestly.
 
 ## Useful Project Commands
-- Commands will be documented here as executable entrypoints are added; do not present unimplemented commands as available.
+- Setup: `.\scripts\setup.ps1` or `uv sync --frozen`, `npm --prefix frontend ci`, `npm --prefix frontend run build`.
+- Start: `.\scripts\start.ps1` (loads supported `.env` keys) → http://127.0.0.1:8000; Ctrl+C stops it.
+- Backend dev: `.\scripts\start.ps1 -Reload`; frontend dev in another terminal: `npm --prefix frontend run dev` → port 5173.
+- Optional inference after installing Ollama: `ollama serve`, then `ollama pull qwen3:4b` in a separate terminal; reuse an already running service. No model required for tests.
+- Seed running API: `uv run python scripts/seed_demo.py`; or choose Load Arabic demo in UI.
+- Tests: `uv run --frozen pytest -q`; full checks: `.\scripts\check.ps1`.
+- Python lint/format: `uv run ruff check backend tests scripts`; `uv run ruff format backend tests scripts`.
+- Frontend type check: `npm --prefix frontend run check`; formatting: `npm --prefix frontend run format` (or `format:check`); build: `npm --prefix frontend run build`.
+- Verify exported JSON: `uv run python -m backend.replay path/to/evaluation.json`.
+- Keep `uv.lock` and `frontend/package-lock.json` committed. Preserve localhost defaults and 12 MB request limits.
