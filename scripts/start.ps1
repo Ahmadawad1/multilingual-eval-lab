@@ -21,4 +21,3 @@ try {
     & uv @serverArguments
     if ($LASTEXITCODE -ne 0) { throw 'Local server stopped with an error. Check port 8000 and the log above.' }
 } finally { Pop-Location }
-

@@ -12,4 +12,3 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
     Write-Host 'Setup complete. Run .\scripts\start.ps1, then open http://127.0.0.1:8000'
 } finally { Pop-Location }
-
