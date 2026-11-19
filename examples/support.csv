@@ -1,0 +1,4 @@
+type,id,text,title,question,expected_answer,qrels,metadata
+document,d1,إِدارة الدعم متاحة صباحا.,الدعم,,,,"{""synthetic"":true}"
+document,d2,الاسترجاع متاح خلال أسبوع.,الاسترجاع,,,,"{""synthetic"":true}"
+query,q1,,,اداره الدعم,إِدارة الدعم متاحة صباحا.,"{""d1"":3,""d2"":0}","{""synthetic"":true}"
