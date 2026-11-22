@@ -15,6 +15,7 @@ from .datasets import dataset_hash, parse_dataset
 from .demo import demo_dataset
 from .experiments import compare, run_experiment, timestamp
 from .inference import RUBRIC, RUBRIC_VERSION, Judgment, complete, inference_status
+from .ragas_evaluation import availability, evaluate_faithfulness
 from .reporting import markdown_report, report_bundle
 from .retrieval import BM25
 from .schemas import (
@@ -81,7 +82,7 @@ class LocalRequestGuard:
 
 
 def create_app(data_dir: Path | None = None, serve_frontend: bool = True) -> FastAPI:
-    app = FastAPI(title="Multilingual Eval Lab", version="0.1.0")
+    app = FastAPI(title="Brainwave Eval", version="0.1.0")
     store = Store(data_dir or Path(os.getenv("EVAL_DATA_DIR", str(ROOT / "data"))))
     app.state.store = store
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "[::1]"])
@@ -267,6 +268,10 @@ def create_app(data_dir: Path | None = None, serve_frontend: bool = True) -> Fas
             )
         return result
 
+    @app.get("/api/evaluators")
+    def evaluators():
+        return {"ragas": availability()}
+
     @app.get("/api/judgments")
     def judgments():
         return {"judgments": store.list("judgment"), "reviews": store.list("review")}
@@ -277,6 +282,23 @@ def create_app(data_dir: Path | None = None, serve_frontend: bool = True) -> Fas
         query = next((r for r in experiment["rows"] if r["query_id"] == request.query_id), None)
         if query is None:
             raise HTTPException(404, "Query not found in experiment")
+        if request.engine == "ragas":
+            docs = {
+                d["id"]: d
+                for d in store.get("dataset", experiment["dataset_id"])["data"]["documents"]
+            }
+            result = evaluate_faithfulness(
+                query["question"],
+                request.answer,
+                [
+                    {"doc_id": p["doc_id"], "text": docs[p["doc_id"]]["text"]}
+                    for p in query["ranking"]
+                ],
+            )
+            return store.put(
+                "judgment",
+                {"id": str(uuid4()), "created_at": timestamp(), **request.model_dump(), **result},
+            )
         if not query["expected_answer"].strip():
             raise ValueError("Correctness judging requires an expected answer")
         docs = {

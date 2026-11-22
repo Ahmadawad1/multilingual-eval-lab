@@ -91,6 +91,9 @@ export type Comparison = {
   >;
 };
 export type Judgment = {
+  engine?: "rubric" | "ragas";
+  ragas_version?: string;
+  ragas_metrics?: { faithfulness: number | null };
   id: string;
   experiment_id: string;
   query_id: string;

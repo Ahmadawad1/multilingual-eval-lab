@@ -17,6 +17,13 @@ export default function JudgePanel({
   const [queryId, setQueryId] = useState(
     initialQuery || comparison.rows[0]?.query_id || "",
   );
+  const [engine, setEngine] = useState("ragas");
+  const [ragasAvailable, setRagasAvailable] = useState<boolean | null>(null);
+  useEffect(() => {
+    void api<{ ragas: { available: boolean } }>("/evaluators")
+      .then((r) => setRagasAvailable(r.ragas.available))
+      .catch(() => setRagasAvailable(false));
+  }, []);
   const [answer, setAnswer] = useState("");
   const [judgments, setJudgments] = useState<Judgment[]>([]);
   const [reviews, setReviews] = useState<HumanReview[]>([]);
@@ -68,12 +75,31 @@ export default function JudgePanel({
                 experiment_id: comparison.candidate.id,
                 query_id: queryId,
                 answer,
+                engine,
               });
               await refresh();
               setSelected(result.id);
             });
           }}
         >
+          <label>
+            Evaluation method
+            <select value={engine} onChange={(e) => setEngine(e.target.value)}>
+              <option value="ragas">
+                RAGAS � claim-level faithfulness (0�1)
+              </option>
+              <option value="rubric">
+                Custom rubric � three dimensions (0�4)
+              </option>
+            </select>
+          </label>
+          {engine === "ragas" && (
+            <p className="notice amber">
+              {ragasAvailable === false
+                ? "RAGAS is not installed. Run uv sync --extra ragas and restart the server, or choose the custom rubric."
+                : "RAGAS extracts claims, then checks each against retrieved passages. No embedding model or reference answer required. Allow up to two local model calls."}
+            </p>
+          )}
           <label>
             Query
             <select
@@ -112,7 +138,12 @@ export default function JudgePanel({
           </label>
           <button
             className="button primary"
-            disabled={busy || !query?.candidate.expected_answer}
+            disabled={
+              busy ||
+              (engine === "rubric"
+                ? !query?.candidate.expected_answer
+                : !ragasAvailable || !query?.candidate.ranking.length)
+            }
           >
             {busy ? "Evaluating…" : "Evaluate with local model"}
           </button>
@@ -164,7 +195,30 @@ export default function JudgePanel({
                 {judgment.answer}
               </p>
             </div>
-            {judgment.scores ? (
+            {judgment.engine === "ragas" ? (
+              <div className="ragas-result">
+                <Badge tone="teal">
+                  RAGAS {judgment.ragas_version} � Faithfulness
+                </Badge>
+                <strong>
+                  {judgment.ragas_metrics?.faithfulness == null
+                    ? "Not scored"
+                    : judgment.ragas_metrics.faithfulness.toFixed(3)}{" "}
+                  <small>/ 1</small>
+                </strong>
+                <p>
+                  Fraction of extracted claims supported by retrieved evidence.
+                  Separate from retrieval metrics and the human 0�4 rubric.
+                </p>
+                {judgment.validation_error && (
+                  <p role="alert">{judgment.validation_error}</p>
+                )}
+                <p className="muted">
+                  Uncalibrated for Arabic. Inspect the claim/verdict evidence in
+                  raw output before trusting this score.
+                </p>
+              </div>
+            ) : judgment.scores ? (
               <>
                 <div className="judge-scores">
                   {(["correctness", "faithfulness", "relevance"] as const).map(

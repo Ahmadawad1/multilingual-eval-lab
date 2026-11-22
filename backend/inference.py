@@ -92,7 +92,9 @@ def inference_status() -> dict:
         }
 
 
-def complete(system: str, payload: dict, json_mode: bool = False) -> dict:
+def complete(
+    system: str, payload: dict, json_mode: bool = False, response_schema: dict | None = None
+) -> dict:
     config = settings()
     if not INFERENCE_LOCK.acquire(blocking=False):
         raise ValueError("Local inference is busy; wait for the current request to finish")
@@ -119,7 +121,7 @@ def complete(system: str, payload: dict, json_mode: bool = False) -> dict:
                 "options": {"temperature": 0, "seed": 42, "num_predict": 1024, "num_ctx": 4096},
             }
             if json_mode:
-                body["format"] = Judgment.model_json_schema()
+                body["format"] = response_schema or Judgment.model_json_schema()
         else:
             path = "/chat/completions"
             body = {

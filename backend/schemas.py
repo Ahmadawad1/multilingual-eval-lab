@@ -81,6 +81,7 @@ class PlaygroundRequest(StrictModel):
 
 
 class JudgeRequest(StrictModel):
+    engine: Literal["rubric", "ragas"] = "rubric"
     experiment_id: Identifier
     query_id: Identifier
     answer: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=12000)]

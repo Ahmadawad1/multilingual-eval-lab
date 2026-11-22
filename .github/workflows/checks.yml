@@ -17,6 +17,7 @@ jobs:
       - run: uv run ruff check backend tests scripts
       - run: uv run ruff format --check backend tests scripts
       - run: uv run pytest -q
+      - run: uv run --extra ragas pytest -q
       - run: npm --prefix frontend ci
       - run: npm --prefix frontend run format:check
       - run: npm --prefix frontend run build
