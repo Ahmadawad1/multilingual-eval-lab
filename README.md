@@ -1,4 +1,4 @@
-# Multilingual Eval Lab
+# Brainwave Eval
 
 A local-first evaluation lab for measuring, comparing and diagnosing multilingual retrieval and RAG quality, starting with Arabic. Built for AI engineering teams investigating regressions before release. The B2B commercial hypothesis is unvalidated; this is a working prototype, not a validated benchmark or production SaaS.
 
@@ -219,3 +219,12 @@ Tests cover hand-calculated metrics/BM25, truncated MRR, empty rankings, missing
 - Validate with representative Arabic corpora and labeled customer failures before expanding feature count.
 
 The default branch remains `master`. Follow [`AGENTS.md`](AGENTS.md) and Conventional Commits. Code and authored demos are Apache-2.0; imported data and downloaded models retain their own licenses. Never commit customer data, credentials, weights or generated reports.
+
+
+## Brainwave identity and optional RAGAS
+
+Brainwave Eval has an original cyan/violet visual treatment inspired by the Brainwave reference: translucent panels, orbital motion, gradient accents and staggered entrances. The supplied Arabic-brain PNG appears only in the top-left product logo. No source code or private data was copied from the reference. Ambient motion has a pause toggle and respects reduced-motion preferences; light/dark modes remain available.
+
+Enable RAGAS: `uv sync --extra ragas`, then restart the server. Run its integration tests with `uv run --extra ragas pytest -q`. Standard setup stays model-free; syncing without the extra can remove optional packages.
+
+Generation Review offers RAGAS faithfulness (0–1) separately from the existing custom rubric (0–4). The real RAGAS collections scorer extracts claims and verifies them against retrieved passages using the existing loopback-only transport. No embeddings or reference answer are required. All prompts, schemas, outputs, model identity and package version are saved in JSON reports. Undefined results and invalid verdicts are unscored, never zero. Human review remains a separate 0–4 assessment. Telemetry is disabled before import. RAGAS English instructions have language-preservation guidance; Arabic reliability still needs human calibration. Two sequential local calls may each take up to 120 seconds. No live GPU judging is claimed.

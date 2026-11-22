@@ -1,4 +1,4 @@
-# Multilingual Eval Lab — agent instructions
+# Brainwave Eval — agent instructions
 
 ## Project Context
 - Repository: `Ahmadawad1/multilingual-eval-lab`; default branch is `master`.
@@ -54,3 +54,7 @@
 - Frontend type check: `npm --prefix frontend run check`; formatting: `npm --prefix frontend run format` (or `format:check`); build: `npm --prefix frontend run build`.
 - Verify exported JSON: `uv run python -m backend.replay path/to/evaluation.json`.
 - Keep `uv.lock` and `frontend/package-lock.json` committed. Preserve localhost defaults and 12 MB request limits.
+
+- Product name: Brainwave Eval; repository/package name remains multilingual-eval-lab.
+- Visual identity: `EvidenceOrbit.tsx` and `identity.css`; user-provided logo in `frontend/public/brainwave-logo.png`, used only in the top-left brand. Keep reduced-motion and pause controls. Reference Brainwave for inspiration without copying code or private assets.
+- Optional RAGAS: `uv sync --extra ragas`; test with `uv run --extra ragas pytest -q`. `ragas_evaluation.py` uses real collections Faithfulness via loopback transport, with telemetry disabled before import. Keep 0–1 scores distinct from retrieval metrics and 0–4 rubric/human labels. Preserve failed traces and null scores. No Arabic calibration claim.

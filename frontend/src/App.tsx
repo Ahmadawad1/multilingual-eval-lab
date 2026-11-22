@@ -33,6 +33,7 @@ import {
   MetricCards,
   score,
 } from "./components";
+import EvidenceOrbit from "./EvidenceOrbit";
 import FailureExplorer from "./FailureExplorer";
 import JudgePanel from "./JudgePanel";
 import type {
@@ -94,8 +95,15 @@ function configLabel(config: Config) {
 export default function App() {
   const [page, setPage] = useState("Overview");
   const [dark, setDark] = useState(
-    () => localStorage.getItem("eval-theme") === "dark",
+    () => localStorage.getItem("eval-theme") !== "light",
   );
+  const [motion, setMotion] = useState(
+    () => localStorage.getItem("eval-motion") !== "paused",
+  );
+  useEffect(() => {
+    document.documentElement.dataset.motion = motion ? "on" : "paused";
+    localStorage.setItem("eval-motion", motion ? "on" : "paused");
+  }, [motion]);
   const [mobileNav, setMobileNav] = useState(false);
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [experiments, setExperiments] = useState<Experiment[]>([]);
@@ -337,11 +345,13 @@ export default function App() {
       )}
       <aside className={`sidebar ${mobileNav ? "open" : ""}`}>
         <div className="brand">
-          <div className="brand-mark" aria-hidden="true">
-            ع<span>∙</span>
-          </div>
+          <img
+            className="brand-logo"
+            src="/brainwave-logo.png"
+            alt="Brainwave Eval logo"
+          />
           <div>
-            Multilingual<span>Eval Lab</span>
+            Brainwave<span>Eval</span>
           </div>
           <button
             className="icon-button mobile-close"
@@ -394,6 +404,16 @@ export default function App() {
           <button className="theme-switch" onClick={() => setDark(!dark)}>
             {dark ? <Sun size={18} /> : <Moon size={18} />}
             <span>{dark ? "Light appearance" : "Dark appearance"}</span>
+          </button>
+          <button
+            className="theme-switch motion-switch"
+            aria-pressed={motion}
+            onClick={() => setMotion(!motion)}
+          >
+            <Activity size={18} />
+            <span>
+              {motion ? "Pause ambient motion" : "Enable ambient motion"}
+            </span>
           </button>
           <div className="sidebar-footer">
             <span className="avatar">ML</span>
@@ -546,21 +566,7 @@ export default function App() {
                         <Search size={17} />
                       </button>
                     </div>
-                    <div className="welcome-visual" aria-hidden="true">
-                      <div className="arabic-glyphs">
-                        <span>أ</span>
-                        <span>ا</span>
-                        <span>إ</span>
-                      </div>
-                      <div className="visual-rule" />
-                      <div className="visual-label">
-                        ONE FOLD. DIFFERENT OUTCOMES.
-                      </div>
-                      <div className="visual-tags">
-                        <span>better recall</span>
-                        <span>entity collisions</span>
-                      </div>
-                    </div>
+                    <EvidenceOrbit comparison={comparison} />
                   </div>
                   <div className="overview-stats">
                     <article>

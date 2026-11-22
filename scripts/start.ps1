@@ -17,7 +17,7 @@ try {
     }
     $serverArguments = @('run', '--frozen', '--no-sync', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8000')
     if ($Reload) { $serverArguments += '--reload' }
-    Write-Host 'Multilingual Eval Lab: http://127.0.0.1:8000 (Ctrl+C to stop)'
+    Write-Host 'Brainwave Eval: http://127.0.0.1:8000 (Ctrl+C to stop)'
     & uv @serverArguments
     if ($LASTEXITCODE -ne 0) { throw 'Local server stopped with an error. Check port 8000 and the log above.' }
 } finally { Pop-Location }

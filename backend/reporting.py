@@ -43,7 +43,7 @@ def markdown_report(bundle: dict) -> str:
         return str(value).replace("|", "\\|").replace("\n", " ").replace("\r", " ")
 
     lines = [
-        "# Multilingual Eval Lab — evaluation report",
+        "# Brainwave Eval — evaluation report",
         "",
         f"Baseline: {safe(base['name'])} ({base['id']})",
         "",
