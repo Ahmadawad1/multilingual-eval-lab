@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { Outlet, useLocation } from 'react-router-dom';
 import { ServerCrash, Terminal } from 'lucide-react';
-import { Pill } from '@/features/evaluation/components/EvalPrimitives';
 import { DatasetPicker, preferredVersion } from '@/features/evaluation/components/DatasetPicker';
 import { useDatasets, useEvalStatus } from '@/features/evaluation/hooks/useEval';
 import { useEvalStore } from '@/store/eval.store';
@@ -82,19 +80,6 @@ export function EvaluationLayout() {
       )}
 
       <Outlet />
-
-      {createPortal(
-        <div className="pointer-events-none fixed bottom-4 right-4 z-40">
-          <div className="pointer-events-auto flex flex-wrap justify-end gap-1.5 rounded-full border border-white/10 bg-[hsl(var(--card)/0.85)] px-2.5 py-1.5 shadow-panel backdrop-blur-md">
-            <Pill tone={offline ? 'bad' : 'good'}>eval-api {offline ? 'offline' : 'up'}</Pill>
-            {!onNormalization && <>
-              <Pill tone={status.data?.know_hub ? 'good' : 'warn'}>know-hub {status.data?.know_hub ? 'up' : 'down'}</Pill>
-              <Pill tone={status.data?.know_hub_grpc ? 'good' : 'warn'}>gRPC {status.data?.know_hub_grpc ? 'up' : 'down'}</Pill>
-            </>}
-          </div>
-        </div>,
-        document.body,
-      )}
     </div>
   );
 }
