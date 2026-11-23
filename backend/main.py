@@ -6,10 +6,13 @@ from uuid import uuid4
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+from agent_hub.eval.lab.api import create_app as create_eval_app
+from agent_hub.eval.lab.store import LabStore
 
 from .datasets import dataset_hash, parse_dataset
 from .demo import demo_dataset
@@ -349,10 +352,33 @@ def create_app(data_dir: Path | None = None, serve_frontend: bool = True) -> Fas
             },
         )
 
+    lab = create_eval_app(store=LabStore(store.path.parent / "evaluation"))
+    dist = ROOT / "eval-ui" / "dist"
+    if serve_frontend and (dist / "index.html").is_file():
+
+        @app.get("/", include_in_schema=False)
+        def open_lab():
+            return RedirectResponse("/evaluation/dataset")
+
+        @app.get("/evaluation", include_in_schema=False)
+        @app.get("/evaluation/{page:path}", include_in_schema=False)
+        def evaluation_page(page: str = ""):
+            return FileResponse(dist / "index.html")
+
+        app.mount("/evaluation-assets", StaticFiles(directory=dist / "evaluation-assets"))
+
+        @app.get("/brainwave-logo.png", include_in_schema=False)
+        def logo():
+            return FileResponse(ROOT / "frontend/public/brainwave-logo.png")
+
     if serve_frontend and (ROOT / "frontend" / "dist").exists():
-        app.mount(
-            "/", StaticFiles(directory=ROOT / "frontend" / "dist", html=True), name="frontend"
-        )
+
+        @app.get("/workspace", include_in_schema=False)
+        def classic_workspace():
+            return FileResponse(ROOT / "frontend/dist/index.html")
+
+        app.mount("/assets", StaticFiles(directory=ROOT / "frontend/dist/assets"))
+    app.mount("/", lab)
     return app
 
 

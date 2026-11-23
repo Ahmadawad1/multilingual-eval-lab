@@ -236,3 +236,6 @@ test-results/
 
 # Streamlit
 .streamlit/secrets.toml
+
+!eval-ui/src/lib/
+!eval-ui/src/features/evaluation/lib/

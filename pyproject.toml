@@ -3,18 +3,28 @@ name = "multilingual-eval-lab"
 version = "0.1.0"
 description = "Local-first Arabic retrieval evaluation lab"
 requires-python = ">=3.11"
-dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1", "numpy>=2.2,<3"]
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.34,<1",
+    "httpx>=0.28,<1",
+    "numpy>=2.2,<3",
+    "grpcio>=1.84",
+    "protobuf>=7.35.1",
+]
 
 [project.optional-dependencies]
 ragas = [
     "ragas>=0.4,<0.5",
+]
+rerank = [
+    "sentence-transformers>=3,<6",
 ]
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "ruff>=0.15,<1"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "agent_hub/tests"]
 pythonpath = ["."]
 
 [tool.ruff]

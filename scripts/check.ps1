@@ -12,4 +12,6 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Frontend formatting failed.' }
     npm --prefix frontend run build
     if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
+    npm --prefix eval-ui run build
+    if ($LASTEXITCODE -ne 0) { throw 'Eval Lab build failed.' }
 } finally { Pop-Location }

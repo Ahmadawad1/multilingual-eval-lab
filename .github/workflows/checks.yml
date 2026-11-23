@@ -21,3 +21,5 @@ jobs:
       - run: npm --prefix frontend ci
       - run: npm --prefix frontend run format:check
       - run: npm --prefix frontend run build
+      - run: npm --prefix eval-ui ci
+      - run: npm --prefix eval-ui run build

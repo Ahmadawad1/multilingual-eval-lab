@@ -58,3 +58,9 @@
 - Product name: Brainwave Eval; repository/package name remains multilingual-eval-lab.
 - Visual identity: `EvidenceOrbit.tsx` and `identity.css`; user-provided logo in `frontend/public/brainwave-logo.png`, used only in the top-left brand. Keep reduced-motion and pause controls. Reference Brainwave for inspiration without copying code or private assets.
 - Optional RAGAS: `uv sync --extra ragas`; test with `uv run --extra ragas pytest -q`. `ragas_evaluation.py` uses real collections Faithfulness via loopback transport, with telemetry disabled before import. Keep 0–1 scores distinct from retrieval metrics and 0–4 rubric/human labels. Preserve failed traces and null scores. No Arabic calibration claim.
+
+## Standalone Brainwave Eval Lab
+- The primary UI lives in `eval-ui/` and opens at `/evaluation/dataset`. Copying the local Brainwave Evaluation pages and their supporting code was explicitly requested. Keep the scope to Eval Lab and omit account screens.
+- The reference evaluation engine is in `agent_hub/eval/` and runs under the same guarded FastAPI process at `/api/eval`. It stores its own artifacts in `data/evaluation/`. Preserve the existing `/workspace` and SQLite APIs.
+- Build the new client with `npm --prefix eval-ui ci` and `npm --prefix eval-ui run build`. Setup builds both clients. Use `python scripts/start_eval_services.py` for the local Know Hub and Ollama dependencies from the sibling reference checkout. No Docker service needs public host ports.
+- Run `uv run --extra ragas pytest -q` for the combined suites. Local model checks establish connectivity and call behavior only.

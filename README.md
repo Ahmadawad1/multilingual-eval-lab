@@ -1,5 +1,20 @@
 # Brainwave Eval
 
+Open [Golden Sets](http://127.0.0.1:8000/evaluation/dataset) for the standalone Brainwave evaluation workspace. The sidebar follows the reference lab through Golden Sets, Retrieval, Arabic Norm, Experiments, Stats Lab, Generation, Judge Lab, and Release Gate. A dataset version moves through Collect, Ask, Index, Judge, Gate, and Freeze. Both the built frontend and its API run on loopback without a login.
+
+From the repo root on Windows:
+
+```powershell
+.\scripts\setup.ps1
+python scripts/start_eval_services.py
+.\scripts\start.ps1
+```
+
+The service helper uses Docker Desktop and the sibling Brainwave checkout's evaluation configuration, installed Know Hub modules, and cached Ollama models. It runs a separate Compose project named `brainwave-eval-local` and binds Know Hub and Ollama to loopback. If these services are already available on the standard local ports (3002, 50052, 11434), start the app directly. For a first run, import the built-in English or Arabic golden set, open its Index tab, build the raw index, then open Retrieval and run a golden question. Arabic Norm can run BM25 using `examples/diagnostic-bundle.json` without Docker. Its optional dense experiment requires `uv sync --extra rerank` and the chosen encoder revision already in your local model cache.
+
+The application stores Golden Sets, runs, and release exports under `data/evaluation`. The original SQLite workspace, including its RAGAS evaluator and previously saved experiments, is accessible at [/workspace](http://127.0.0.1:8000/workspace). The following instructions cover that workspace.
+
+
 A local-first evaluation lab for measuring, comparing and diagnosing multilingual retrieval and RAG quality, starting with Arabic. Built for AI engineering teams investigating regressions before release. The B2B commercial hypothesis is unvalidated; this is a working prototype, not a validated benchmark or production SaaS.
 
 **Dataset → Baseline → Experiment → Evaluation → Comparison → Failure diagnosis → Report**
@@ -17,7 +32,7 @@ From the repository root in PowerShell:
 .\scripts\start.ps1
 ```
 
-Open **[http://127.0.0.1:8000](http://127.0.0.1:8000)**. Choose **Start with Arabic demo**. The app creates 18 labeled synthetic queries, 22 passages and three measured BM25 runs. Repeating the demo reuses existing matching configurations. Stop with Ctrl+C.
+Open **[the original workspace](http://127.0.0.1:8000/workspace)**. Choose **Load Arabic demo**. The app creates 18 labeled synthetic queries, 22 passages and three measured BM25 runs. Repeating the demo reuses existing matching configurations. Stop with Ctrl+C.
 
 If your environment does not permit PowerShell scripts, run the equivalent commands individually without changing your execution policy:
 

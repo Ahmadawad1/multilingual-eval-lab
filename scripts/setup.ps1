@@ -10,5 +10,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Frontend dependency installation failed.' }
     npm --prefix frontend run build
     if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
+    npm --prefix eval-ui ci
+    if ($LASTEXITCODE -ne 0) { throw 'Eval Lab dependency installation failed.' }
+    npm --prefix eval-ui run build
+    if ($LASTEXITCODE -ne 0) { throw 'Eval Lab build failed.' }
     Write-Host 'Setup complete. Run .\scripts\start.ps1, then open http://127.0.0.1:8000'
 } finally { Pop-Location }
