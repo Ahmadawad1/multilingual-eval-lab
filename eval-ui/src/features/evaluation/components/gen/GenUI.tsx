@@ -154,11 +154,11 @@ export function StackBar({ counts, colors, total }: { counts: Record<string, num
 
 const LABELS: Record<string, string> = {
   faithfulness: 'Faithfulness',
-  answer_relevance: 'Answer relevance (rubric)',
+  answer_relevance: 'Answer relevancy',
   answer_relevance_embedding: 'Answer relevance (embedding, RAGAS method)',
   context_precision: 'Context precision (LLM)',
   context_recall: 'Context recall (LLM)',
-  answer_correctness: 'Answer correctness (claim F1)',
+  answer_correctness: 'Answer correctness',
   answer_verdict: 'Answer verdict (binary)',
   context_precision_labels: 'Context precision (labels)',
   context_recall_labels: 'Context recall (labels)',
@@ -177,6 +177,15 @@ function Tick({ ok }: { ok: boolean }) {
 
 function Steps({ name, steps }: { name: string; steps: Record<string, unknown>[] }) {
   if (!steps.length) return null;
+  if ('schema' in steps[0]) {
+    return <div>{steps.map((step, i) => (
+      <details key={i} className="py-1 text-xs">
+        <summary>Model call {i + 1}</summary>
+        <pre className="whitespace-pre-wrap break-words">{String(step.raw ?? step.error ?? '')}</pre>
+        <details><summary>Prompt</summary><pre className="whitespace-pre-wrap break-words">{String(step.prompt ?? '')}</pre></details>
+      </details>
+    ))}</div>;
+  }
   const s = steps as Record<string, never>[];
   const row = 'flex items-start gap-2 border-t border-white/5 py-1.5 text-[11px]';
   switch (name) {

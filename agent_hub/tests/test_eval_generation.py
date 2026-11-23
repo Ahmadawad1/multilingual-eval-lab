@@ -64,8 +64,62 @@ class FakeLLM:
         return ["fake-model"]
 
     def embed(self, texts, model="x"):
-        vocab = sorted({w for t in texts for w in words(t)})
-        return [[1.0 if w in words(t) else 0.0 for w in vocab] for t in texts]
+        return [[1.0, float(len(words(t)))] for t in texts]
+
+    def chat_structured(self, system, prompt, schema, **settings):
+        self.calls += 1
+        data = json.loads(prompt.rsplit("\ninput: ", 1)[1].rsplit("\nOutput:", 1)[0])
+        title = schema["title"]
+        if title == "StatementGeneratorOutput":
+            a = data["answer"]
+            result = {"statements": [] if gm.is_abstention(a) else re.split(r"(?<=[.!?])\s+", a)}
+        elif title == "NLIStatementOutput":
+            result = {
+                "statements": [
+                    {
+                        "statement": s,
+                        "verdict": int(covered(s, data["context"])),
+                        "reason": "fixture",
+                    }
+                    for s in data["statements"]
+                ]
+            }
+        elif title == "AnswerRelevanceOutput":
+            result = {
+                "question": data["response"],
+                "noncommittal": int(gm.is_abstention(data["response"])),
+            }
+        elif title == "ContextPrecisionOutput":
+            result = {
+                "verdict": int(covered(data["answer"], data["context"], 0.5)),
+                "reason": "fixture",
+            }
+        elif title == "ContextRecallOutput":
+            result = {
+                "classifications": [
+                    {
+                        "statement": data["answer"],
+                        "reason": "fixture",
+                        "attributed": int(covered(data["answer"], data["context"], 0.5)),
+                    }
+                ]
+            }
+        elif title == "ClassificationWithReason":
+            result = {"TP": [], "FP": [], "FN": []}
+            for claim in data["answer"]:
+                matches = any(
+                    covered(ref, claim, 0.5)
+                    and set(re.findall(r"\d+", ref)) <= set(re.findall(r"\d+", claim))
+                    for ref in data["ground_truth"]
+                )
+                result["TP" if matches else "FP"].append({"statement": claim, "reason": "fixture"})
+            if not result["TP"]:
+                result["FN"] = [
+                    {"statement": ref, "reason": "fixture"} for ref in data["ground_truth"]
+                ]
+        else:
+            raise AssertionError(title)
+        return json.dumps(result)
 
     def chat_text(self, system, user, **_):
         self.calls += 1
@@ -79,43 +133,6 @@ class FakeLLM:
 
     def chat_json(self, system, user, **_):
         self.calls += 1
-        if "atomic factual claims" in system:
-            answer = section(user, "ANSWER")
-            if gm.is_abstention(answer):
-                return {"claims": []}
-            return {"claims": [s.strip() for s in re.split(r"(?<=[.!?])\s+", answer) if s.strip()]}
-        if "verify whether ONE claim" in system:
-            return {
-                "supported": covered(section(user, "CLAIM"), section(user, "CONTEXT")),
-                "reason": "fake",
-            }
-        if "addresses the question" in system:
-            q, a = section(user, "QUESTION"), section(user, "ANSWER")
-            return {"score": 5 if words(q) & words(a) else 2, "reason": "fake"}
-        if "questions it would be a direct reply to" in system:
-            a = section(user, "ANSWER")
-            return {"questions": [a], "noncommittal": gm.is_abstention(a)}
-        if "ONE passage of retrieved context" in system:
-            return {
-                "useful": covered(section(user, "REFERENCE ANSWER"), section(user, "PASSAGE"), 0.5)
-            }
-        if "explicitly states this statement" in system:
-            return {
-                "attributed": covered(section(user, "STATEMENT"), section(user, "CONTEXT"), 0.6)
-            }
-        if "ONE claim from an answer" in system:
-            return {
-                "supported": covered(section(user, "CLAIM"), section(user, "REFERENCE ANSWER"), 0.5)
-            }
-        if "conveys this statement" in system:
-            return {"covered": covered(section(user, "STATEMENT"), section(user, "ANSWER"), 0.5)}
-        if "grade an answer against a reference" in system:
-            ref, ans = section(user, "REFERENCE ANSWER"), section(user, "ANSWER")
-            nums = set(re.findall(r"\d+", ref))
-            ok = (not gm.is_abstention(ans)) and (
-                nums <= set(re.findall(r"\d+", ans)) if nums else covered(ref, ans, 0.5)
-            )
-            return {"correct": ok}
         if "relevance grader" in system:
             return {
                 "relevant": bool(
@@ -156,6 +173,11 @@ def judge() -> gm.MetricJudge:
     return gm.MetricJudge(FakeLLM(), model="fake-model")
 
 
+requires_ragas = pytest.mark.skipif(
+    not gm.availability()["available"], reason="requires the RAGAS extra"
+)
+
+
 def test_average_precision_hand_computed():
     assert gm.average_precision([False, False, False, True])[0] == pytest.approx(0.25)
     assert gm.average_precision([True, False])[0] == 1.0
@@ -165,10 +187,14 @@ def test_average_precision_hand_computed():
     assert gm.average_precision([False, False])[0] == 0.0
 
 
+@requires_ragas
 def test_faithfulness_is_blind_to_a_stale_context():
     stale = "Business travel meals are reimbursed up to a daily limit of 45 euros."
     res = gm.faithfulness(
-        judge(), "Business travel meals are reimbursed up to 45 euros daily.", [stale]
+        judge(),
+        "What is the meal limit?",
+        "Business travel meals are reimbursed up to 45 euros daily.",
+        [stale],
     )
     assert res.score == 1.0  # faithful to a wrong document
     wrong = gm.answer_correctness(
@@ -180,29 +206,47 @@ def test_faithfulness_is_blind_to_a_stale_context():
     assert wrong.score < 0.5
 
 
+@requires_ragas
 def test_faithfulness_vacuous_on_abstention_and_partial_on_hallucination():
     j = judge()
     res = gm.faithfulness(
-        j, "I don't have enough information in the available documents.", ["x y z"]
+        j,
+        "What is the policy?",
+        "I don't have enough information in the available documents.",
+        ["x y z"],
     )
-    assert res.score == 1.0 and "vacuous" in res.flags and "abstention" in res.flags
+    assert res.score is None and res.error and res.steps
     ctx = ["Full-time employees receive 25 days of paid annual leave per calendar year."]
     half = gm.faithfulness(
         j,
+        "What leave do staff get?",
         "Full-time employees receive 25 days of paid annual leave. Staff also get a birthday day off.",
         ctx,
     )
     assert half.score == pytest.approx(0.5)
-    assert [s["supported"] for s in half.steps].count(False) == 1
+    assert [s["verdict"] for s in json.loads(half.steps[-1]["raw"])["statements"]].count(0) == 1
 
 
+@requires_ragas
 def test_context_precision_rewards_rank():
     ref = "25 days of paid annual leave per year"
     good = "Full-time employees receive 25 days of paid annual leave per year."
     noise = ["Hotels cost 150 euros per night.", "Book a desk in the app.", "Gifts under 50 euros."]
     late = gm.context_precision(judge(), "holiday?", [*noise, good], ref)
     early = gm.context_precision(judge(), "holiday?", [good, *noise], ref)
-    assert late.score == pytest.approx(0.25) and early.score == 1.0
+    assert late.score == pytest.approx(0.25) and early.score == pytest.approx(1)
+
+
+@requires_ragas
+def test_failed_ragas_output_keeps_trace_and_has_no_score(monkeypatch):
+    evaluator = judge()
+    monkeypatch.setattr(
+        evaluator.llm, "chat_structured", lambda *args, **kwargs: '{"verdict": 2, "reason": "bad"}'
+    )
+    result = gm.context_precision(evaluator, "q", ["passage"], "reference")
+    assert result.score is None and "0 or 1" in result.error
+    assert json.loads(result.steps[0]["raw"])["verdict"] == 2
+    assert gm.context_recall(evaluator, "q", ["context"], "").score is None
 
 
 def test_label_based_context_metrics():
@@ -218,8 +262,7 @@ def test_label_based_context_metrics():
     assert gm.context_recall_labels(ctx, [], {}).score is None  # unanswerable
 
 
-def test_split_statements_and_abstention_regex():
-    assert gm.split_statements("A is 1. B is 2! C is 3?") == ["A is 1.", "B is 2!", "C is 3?"]
+def test_abstention_regex():
     assert gm.is_abstention(
         "The context does not contain the answer. I don't have enough information."
     )
@@ -300,6 +343,7 @@ def gen(store, kh, **spec):
     )
 
 
+@requires_ragas
 def test_clean_run_blames_nothing_and_abstains_on_unanswerable(tmp_path):
     store, kh = seeded(tmp_path)
     run = gen(store, kh)
@@ -314,6 +358,7 @@ def test_clean_run_blames_nothing_and_abstains_on_unanswerable(tmp_path):
 
 
 @pytest.mark.parametrize("fault", ["ingestion", "retrieval", "rerank", "grade", "generation"])
+@requires_ragas
 def test_each_injected_fault_is_blamed_on_its_stage(tmp_path, fault):
     store, kh = seeded(tmp_path)
     run = gen(store, kh, fault=fault)
@@ -553,6 +598,7 @@ def wait(client, job):
     raise AssertionError("job did not finish")
 
 
+@requires_ragas
 def test_api_generation_judges_and_gate(tmp_path, monkeypatch):
     store, kh = seeded(tmp_path)
     store.freeze("demo", 1)
@@ -586,6 +632,17 @@ def test_api_generation_judges_and_gate(tmp_path, monkeypatch):
     cmp = client.post("/api/eval/gen/compare", json={"run_a": base_id, "run_b": cand_id}).json()
     assert any(m["metric"] == "answer_ok" and m["delta"] < 0 for m in cmp["metrics"])
 
+    incompatible = store.get_gen_run(cand_id).model_copy(
+        update={"id": "old-scorer", "judge_fingerprint": "legacy"}
+    )
+    store.save_gen_run(incompatible)
+    assert (
+        client.post(
+            "/api/eval/gen/compare", json={"run_a": base_id, "run_b": incompatible.id}
+        ).status_code
+        == 409
+    )
+
     # judges: versioning
     j = client.post(
         "/api/eval/judges",
@@ -604,6 +661,14 @@ def test_api_generation_judges_and_gate(tmp_path, monkeypatch):
 
     lines = "\n".join(json.dumps(s.model_dump()) for s in judge_set().samples)
     client.post("/api/eval/judge-sets", json={"name": "cal", "id": "cal", "jsonl": lines})
+    grounding = wait(client, client.post("/api/eval/judge-sets/cal/ragas-faithfulness").json())
+    measured = client.get(f"/api/eval/judge-runs/{grounding['judge_run_id']}").json()
+    assert measured["spec"]["engine"] == "ragas"
+    assert all(row["score"] is None for row in measured["results"])
+    assert all(
+        row["faithfulness"]["score"] is None or row["faithfulness"]["note"].startswith("RAGAS")
+        for row in measured["results"]
+    )
     task = client.get("/api/eval/judge-sets/cal/task", params={"rater": "you"}).json()
     assert task["remaining"] == 6 and "kind" not in task["next"][0]
     client.put(

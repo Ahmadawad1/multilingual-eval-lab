@@ -46,7 +46,10 @@ from agent_hub.adapters.prompts import (
     CRAG_GRADE,
     DEFAULT_PROMPTS,
 )
-ABSTAIN_MESSAGE = "I don\x27t have enough information in the available documents to answer that confidently."
+
+ABSTAIN_MESSAGE = (
+    "I don\x27t have enough information in the available documents to answer that confidently."
+)
 from agent_hub.eval.lab import genmetrics as gm
 from agent_hub.eval.lab.chunking import chunk_text, locate_evidence, norm_text
 from agent_hub.eval.lab.genmodels import (
@@ -95,6 +98,13 @@ _WORD = re.compile(r"\w+", re.UNICODE)
 
 
 # --- evidence units ---------------------------------------------------------------------
+
+
+def _bool(data: dict, key: str) -> bool:
+    value = data.get(key)
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "yes", "1")
+    return bool(value)
 
 
 def evidence_units(item: GoldenItem) -> list[tuple[str, str]]:
@@ -277,7 +287,7 @@ def _grade(llm: LLM, model: str | None, question: str, contexts: list[CtxChunk])
             model=model,
             temperature=0.0,
         )
-        return {"relevant": gm._bool(data, "relevant"), "reason": str(data.get("reason", ""))}
+        return {"relevant": _bool(data, "relevant"), "reason": str(data.get("reason", ""))}
     except LLMError as exc:
         # Fails closed, like the service: an unreadable verdict is "not relevant".
         return {"relevant": False, "reason": f"grader error — treated as not relevant ({exc})"}
@@ -310,7 +320,7 @@ def _grounded(llm: LLM, model: str | None, answer: str, contexts: list[CtxChunk]
             model=model,
             temperature=0.0,
         )
-        return {"grounded": gm._bool(data, "grounded"), "reason": str(data.get("reason", ""))}
+        return {"grounded": _bool(data, "grounded"), "reason": str(data.get("reason", ""))}
     except LLMError as exc:
         return {"grounded": False, "reason": f"grounding check error ({exc})"}
 
@@ -417,30 +427,25 @@ def run_item(
         )
         if llm_context_metrics and item.ground_truth:
             keep(gm.context_precision(judge, item.query, ctx_text, item.ground_truth))
-            keep(gm.context_recall(judge, ctx_text, item.ground_truth))
+            keep(gm.context_recall(judge, item.query, ctx_text, item.ground_truth))
         if result.abstained:
             metrics["answer_ok"] = 0.0
             metrics["false_abstention"] = 1.0
-            metrics["answer_correctness"] = 0.0
-            details["answer_correctness"] = {
-                "name": "answer_correctness",
-                "score": 0.0,
-                "note": "Abstained on an answerable question: scored 0 without a judge call.",
-            }
+            keep(gm.answer_correctness(judge, item.query, answer, item.ground_truth))
         else:
             metrics["false_abstention"] = 0.0
-            keep(gm.faithfulness(judge, answer, ctx_text))
+            keep(gm.faithfulness(judge, item.query, answer, ctx_text))
             keep(gm.answer_relevance(judge, item.query, answer))
             keep(gm.answer_correctness(judge, item.query, answer, item.ground_truth))
-            verdict = gm.answer_verdict(judge, item.query, answer, item.ground_truth)
-            details["answer_verdict"] = verdict.as_dict()
-            if verdict.score is not None:
-                metrics["answer_ok"] = verdict.score
+            if "answer_correctness" in metrics:
+                metrics["answer_ok"] = float(
+                    metrics["answer_correctness"] >= gm.ANSWER_PASS_THRESHOLD
+                )
     else:
         metrics["answered_unanswerable"] = 0.0 if result.abstained else 1.0
         metrics["answer_ok"] = 1.0 if result.abstained else 0.0
         if not result.abstained:
-            keep(gm.faithfulness(judge, answer, ctx_text))
+            keep(gm.faithfulness(judge, item.query, answer, ctx_text))
 
     result.metrics = metrics
 
@@ -558,6 +563,8 @@ def _attribute(bundle, spec, item, units, r: GenItemResult):
     ok = r.metrics.get("answer_ok") == 1.0
     if r.abstained:
         outcome = "false_abstention"
+    elif "answer_ok" not in r.metrics:
+        outcome = "unscored"
     elif ok:
         outcome = "correct"
     else:
@@ -578,6 +585,10 @@ def _attribute(bundle, spec, item, units, r: GenItemResult):
     elif not grade_ok:
         gen = StageResult(
             stage="generation", status="skip", detail="Not reached (abstained after the grade)."
+        )
+    elif outcome == "unscored":
+        gen = StageResult(
+            stage="generation", status="skip", detail="No RAGAS correctness score available."
         )
     elif ok:
         gen = StageResult(
@@ -600,7 +611,7 @@ def _attribute(bundle, spec, item, units, r: GenItemResult):
         )
     stages.append(gen)
 
-    if outcome == "correct":
+    if outcome in {"correct", "unscored"}:
         blame = "none"
     else:
         blame = next((s.stage for s in stages if s.status == "fail"), None) or next(

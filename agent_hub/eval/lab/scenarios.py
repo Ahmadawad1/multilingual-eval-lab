@@ -63,7 +63,9 @@ LEAVE_REF = "25 days per calendar year plus public holidays. 28 days after five 
 MEAL_Q = "What is the daily meal limit when I'm travelling for work?"
 MEAL_REF = "60 euros per day under the current policy (version 4)."
 TRIP_Q = "What's the daily allowance on a business trip and does it include food?"
-TRIP_ANSWER = "You get a per diem of 45 euros per full travel day for incidentals. It does not cover meals."
+TRIP_ANSWER = (
+    "You get a per diem of 45 euros per full travel day for incidentals. It does not cover meals."
+)
 ANCHOR_Q = "Which weekdays do we have to be in the office?"
 
 SCENARIOS: list[dict] = [
@@ -87,27 +89,20 @@ SCENARIOS: list[dict] = [
     {
         "id": "phrasing",
         "title": "2 · Same facts, different words",
-        "lesson": "The same facts as the control, in fuller sentences. Answer correctness can fall to "
-        "about 0.5. Open its steps: the judge marks a true claim as FP because it 'only mentions part' "
-        "of the reference — although the prompt says partial claims are fine. That is judge error "
-        "inside a metric. The binary answer verdict stays 'correct'. Measuring this kind of error is "
-        "what Judge Lab is for.",
+        "lesson": "Compare a paraphrase with the reference. Inspect the factual "
+        "classifications and the effect of semantic similarity on correctness.",
         "question": LEAVE_Q,
         "contexts": [LEAVE],
         "answer": "Full-time staff get 25 days of paid annual leave per year, plus public holidays. "
         "After five years of service this rises to 28 days.",
         "reference": LEAVE_REF,
-        "expect": {"answer_correctness": "~0.5 (judge error)", "answer_verdict": "correct"},
+        "expect": {"answer_correctness": "high for equivalent facts"},
     },
     {
         "id": "stale-context",
         "title": "3 · Faithful but wrong: the archived policy",
-        "lesson": "The retriever returned the 2021 archived policy and the answer repeats it. "
-        "Faithfulness is 1.0: it only checks the answer against the context, and the context is wrong. "
-        "Answer relevance is 1.0 too. Only the metrics that read the reference see the problem. Look "
-        "at answer correctness: it can be about 0.5, not 0, because the wrong number is only ONE of the "
-        "claims — claim-level F1 gives partial credit to a wrong answer. The binary verdict says "
-        "'incorrect'.",
+        "lesson": "The answer follows the archived policy. Faithfulness may be high while "
+        "correctness falls because the reference uses the current limit.",
         "question": MEAL_Q,
         "contexts": [MEALS_ARCHIVED],
         "answer": "Meals on business travel are reimbursed up to 45 euros per day.",
@@ -118,7 +113,6 @@ SCENARIOS: list[dict] = [
             "context_precision": "0",
             "context_recall": "0",
             "answer_correctness": "0–0.5",
-            "answer_verdict": "incorrect",
         },
     },
     {
@@ -153,17 +147,15 @@ SCENARIOS: list[dict] = [
     {
         "id": "abstention",
         "title": "6 · Vacuous faithfulness: 'I don't know'",
-        "lesson": "An answer with no claims cannot contain an unsupported claim, so faithfulness is 1.0 "
-        "by convention (flagged vacuous). Relevance and correctness show it is useless. The context held "
-        "the answer (context recall 1.0), so this is a generation failure. Never read faithfulness "
-        "alone.",
+        "lesson": "The passages contain the answer, but the response declines to give it. "
+        "If RAGAS extracts no factual claims, faithfulness is undefined.",
         "question": "By what time must I tell my manager I'm too unwell to come in?",
         "contexts": [SICK],
         "answer": "I don't have enough information in the available documents to answer that "
         "confidently.",
         "reference": "Before 9:30 on the first day of absence, by phone or message.",
         "expect": {
-            "faithfulness": "1.0 (vacuous)",
+            "faithfulness": "unscored if no claims",
             "answer_relevance": "low",
             "answer_correctness": "0",
         },
@@ -209,10 +201,8 @@ SCENARIOS: list[dict] = [
     {
         "id": "padded",
         "title": "10 · Verbosity: correct answer plus fluff",
-        "lesson": "The first sentence is correct; the rest is generic advice. Per-claim faithfulness "
-        "goes DOWN (the fluff claims are not in the context) and the relevance rubric penalises burying "
-        "the answer. Claim-level metrics resist padding. Compare a single-score judge on the same kind "
-        "of padding in Judge Lab → Bias probes.",
+        "lesson": "The first sentence answers the question. Check which extra claims the passages support "
+        "and how closely the questions inferred from the padded response match the original question.",
         "question": "A supplier offered me a 40 euro shopping voucher. Can I keep it?",
         "contexts": [GIFTS],
         "answer": "No — vouchers must never be accepted, whatever the amount. It is always wise to be "
@@ -223,7 +213,6 @@ SCENARIOS: list[dict] = [
         "expect": {
             "faithfulness": "low (~0.4)",
             "answer_relevance": "low",
-            "answer_verdict": "correct",
         },
     },
     {
@@ -241,7 +230,6 @@ SCENARIOS: list[dict] = [
         "expect": {
             "context_precision": "0",
             "context_recall": "should be 0 — may be 1.0 (judge error)",
-            "answer_verdict": "incorrect",
         },
     },
     {
@@ -259,7 +247,6 @@ SCENARIOS: list[dict] = [
         "expect": {
             "faithfulness": "ambiguous (0 or 1)",
             "context_precision": "0.5",
-            "answer_verdict": "incorrect",
         },
     },
     {
@@ -270,6 +257,6 @@ SCENARIOS: list[dict] = [
         "contexts": [ANCHOR],
         "answer": "Tuesday and Thursday are the office anchor days.",
         "reference": "Tuesday and Thursday are the anchor days.",
-        "expect": {"faithfulness": "1.0", "context_precision": "1.0", "answer_verdict": "correct"},
+        "expect": {"faithfulness": "1.0", "context_precision": "1.0"},
     },
 ]

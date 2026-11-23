@@ -2,11 +2,11 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $projectRoot
 try {
-    uv run --frozen ruff check backend tests scripts
+    uv run --frozen --extra ragas ruff check backend tests scripts
     if ($LASTEXITCODE -ne 0) { throw 'Python lint failed.' }
-    uv run --frozen ruff format --check backend tests scripts
+    uv run --frozen --extra ragas ruff format --check backend tests scripts
     if ($LASTEXITCODE -ne 0) { throw 'Python formatting failed.' }
-    uv run --frozen pytest -q
+    uv run --frozen --extra ragas pytest -q
     if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
     npm --prefix frontend run format:check
     if ($LASTEXITCODE -ne 0) { throw 'Frontend formatting failed.' }

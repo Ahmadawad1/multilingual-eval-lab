@@ -47,7 +47,6 @@ class PlaygroundBody(BaseModel):
     reference: str = ""
     metrics: list[str] | None = None
     model: str | None = None
-    embedding_relevance: bool = True
 
 
 class GenRunBody(BaseModel):
@@ -194,7 +193,7 @@ def build_router(store: LabStore, kh, llm: LLM, jobs: JobRegistry) -> APIRouter:
             "rerank_modes": ["none", "lexical", "llm"],
             "metrics": list(gm.GEN_METRICS),
             "failure_modes": gm.FAILURE_MODES,
-            "metric_prompts": gm.PROMPTS,
+            "metric_prompts": {},
             "prompt_version": gm.METRIC_PROMPT_VERSION,
             "judge": {**judge.config, "fingerprint": judge.fingerprint},
             "default_model": default_model(),
@@ -211,7 +210,8 @@ def build_router(store: LabStore, kh, llm: LLM, jobs: JobRegistry) -> APIRouter:
         judge = metric_judge(body.model)
         wanted = set(
             body.metrics
-            or [
+            if body.metrics is not None
+            else [
                 "faithfulness",
                 "answer_relevance",
                 "context_precision",
@@ -221,28 +221,23 @@ def build_router(store: LabStore, kh, llm: LLM, jobs: JobRegistry) -> APIRouter:
         )
         results: dict[str, dict] = {}
         if "faithfulness" in wanted:
-            results["faithfulness"] = gm.faithfulness(judge, body.answer, body.contexts).as_dict()
+            results["faithfulness"] = gm.faithfulness(
+                judge, body.question, body.answer, body.contexts
+            ).as_dict()
         if "answer_relevance" in wanted:
             results["answer_relevance"] = gm.answer_relevance(
                 judge, body.question, body.answer
             ).as_dict()
-            if body.embedding_relevance:
-                results["answer_relevance_embedding"] = gm.answer_relevance_embedding(
-                    judge, body.question, body.answer
-                ).as_dict()
         if "context_precision" in wanted:
             results["context_precision"] = gm.context_precision(
                 judge, body.question, body.contexts, body.reference
             ).as_dict()
         if "context_recall" in wanted:
             results["context_recall"] = gm.context_recall(
-                judge, body.contexts, body.reference
+                judge, body.question, body.contexts, body.reference
             ).as_dict()
         if "answer_correctness" in wanted:
             results["answer_correctness"] = gm.answer_correctness(
-                judge, body.question, body.answer, body.reference
-            ).as_dict()
-            results["answer_verdict"] = gm.answer_verdict(
                 judge, body.question, body.answer, body.reference
             ).as_dict()
         return {
@@ -306,6 +301,10 @@ def build_router(store: LabStore, kh, llm: LLM, jobs: JobRegistry) -> APIRouter:
     @router.post("/gen/compare")
     def compare(body: CompareGenBody) -> dict:
         a, b = store.get_gen_run(body.run_a), store.get_gen_run(body.run_b)
+        if a.judge_fingerprint != b.judge_fingerprint:
+            raise HTTPException(
+                409, "Rerun both systems with the same scoring engine and judge settings."
+            )
         ra = {r.item_id: r for r in a.results if r.error is None}
         rb = {r.item_id: r for r in b.results if r.error is None}
         ids = sorted(set(ra) & set(rb))
@@ -340,11 +339,6 @@ def build_router(store: LabStore, kh, llm: LLM, jobs: JobRegistry) -> APIRouter:
             )
         transitions = Counter((ra[i].outcome, rb[i].outcome) for i in ids)
         warnings = []
-        if a.judge_fingerprint != b.judge_fingerprint:
-            warnings.append(
-                "The two runs were scored by different judges (fingerprints differ): a judged-metric "
-                "delta mixes the system change with judge drift."
-            )
         if a.dataset_hash != b.dataset_hash:
             warnings.append("The runs used different dataset content.")
         changed = [
@@ -626,6 +620,17 @@ def build_router(store: LabStore, kh, llm: LLM, jobs: JobRegistry) -> APIRouter:
         return jobs.submit(
             "judge_run", f"{spec.name} v{spec.version} · {judge_set.name}", work
         ).as_dict()
+
+    @router.post("/judge-sets/{set_id}/ragas-faithfulness")
+    def validate_grounding(set_id: str) -> dict:
+        judge_set = get_set(set_id)
+
+        def work(job) -> dict:
+            run = jl.run_grounding_validation(metric_judge(), judge_set, job)
+            save_judge_run(run)
+            return {"judge_run_id": run.id}
+
+        return jobs.submit("judge_run", f"RAGAS faithfulness · {judge_set.name}", work).as_dict()
 
     @router.post("/judge-runs/verbosity")
     def verbosity(body: VerbosityBody) -> dict:

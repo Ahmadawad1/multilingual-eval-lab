@@ -57,7 +57,7 @@
 
 - Product name: Brainwave Eval; repository/package name remains multilingual-eval-lab.
 - Visual identity: `EvidenceOrbit.tsx` and `identity.css`; user-provided logo in `frontend/public/brainwave-logo.png`, used only in the top-left brand. Keep reduced-motion and pause controls. Reference Brainwave for inspiration without copying code or private assets.
-- Optional RAGAS: `uv sync --extra ragas`; test with `uv run --extra ragas pytest -q`. `ragas_evaluation.py` uses real collections Faithfulness via loopback transport, with telemetry disabled before import. Keep 0–1 scores distinct from retrieval metrics and 0–4 rubric/human labels. Preserve failed traces and null scores. No Arabic calibration claim.
+- RAGAS for generation (installed by Windows setup): `uv sync --extra ragas`; test with `uv run --extra ragas pytest -q`. `ragas_evaluation.py` uses official collections for faithfulness, answer relevancy, context precision, context recall and answer correctness via loopback transport, with telemetry disabled before import. Keep 0–1 scores distinct from retrieval metrics and 0–4 rubric/human labels. Preserve failed traces and null scores. No Arabic calibration claim.
 
 ## Standalone Brainwave Eval Lab
 - The primary UI lives in `eval-ui/` and opens at `/evaluation/dataset`. Copying the local Brainwave Evaluation pages and their supporting code was explicitly requested. Keep the scope to Eval Lab and omit account screens.

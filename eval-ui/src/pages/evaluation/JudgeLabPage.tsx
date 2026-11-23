@@ -279,6 +279,8 @@ function Validate() {
 
   const start = useEvalMutation(() => genApi.startJudgeRun({ judge_id: judgeId, set_id: setId, repeats: 1, probe: 'standard' }),
     { success: 'Judge run started', onSuccess: (j) => tracked.start(j.id) });
+  const grounding = useEvalMutation(() => genApi.startGroundingValidation(setId),
+    { success: 'RAGAS validation started', onSuccess: (j) => tracked.start(j.id) });
   const validate = useEvalMutation((id: string) => genApi.validation(setId, id, rater), { onSuccess: setReport });
   useEffect(() => {
     const id = tracked.job?.status === 'done' ? String(tracked.job.result.judge_run_id ?? '') : '';
@@ -290,7 +292,9 @@ function Validate() {
       controls={
         <>
           <JudgeSetPickers judgeId={judgeId} setJudgeId={setJudgeId} setId={setId} setSetId={setSetId} />
-          <Button className="w-full gap-1.5" disabled={!judgeId || !setId || start.isPending || tracked.running} onClick={() => start.mutate(undefined)}><Play className="h-4 w-4" /> Run judge on the set</Button>
+          <Button className="w-full" disabled={!setId || grounding.isPending || start.isPending || tracked.running} onClick={() => grounding.mutate(undefined)}>Run RAGAS faithfulness</Button>
+          <p className="text-xs text-muted-foreground">Compare with human grounding labels. A pass means every claim is supported by the supplied passages.</p>
+          <Button className="w-full gap-1.5" disabled={!judgeId || !setId || start.isPending || grounding.isPending || tracked.running} onClick={() => start.mutate(undefined)}><Play className="h-4 w-4" /> Run custom rubric</Button>
           <JobBar jobId={tracked.jobId} />
           <Field label="Judge run"><SelectBox value={runId} onChange={setRunId} placeholder="run the judge first"
             options={standard.map((r) => ({ value: r.id, label: runName(r) }))} /></Field>

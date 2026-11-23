@@ -14,10 +14,10 @@ network: the only endpoint is the stack's own Ollama.
 from __future__ import annotations
 
 import json
-import math
 import os
 import threading
 from typing import Protocol
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -28,7 +28,6 @@ __all__ = [
     "DEFAULT_MODEL",
     "EMBED_MODEL",
     "default_model",
-    "cosine",
 ]
 
 DEFAULT_MODEL = "llama3.1:8b-instruct-q4_K_M"
@@ -46,6 +45,8 @@ class LLMError(RuntimeError):
 
 
 class LLM(Protocol):
+    def chat_structured(self, system, prompt, schema, *, model, temperature, seed) -> str: ...
+
     def chat_json(
         self,
         system: str,
@@ -75,9 +76,14 @@ class LLM(Protocol):
 
 class OllamaLLM:
     def __init__(self, base_url: str | None = None, timeout: float = 240.0) -> None:
-        self.base_url = (
-            base_url or "http://127.0.0.1:11434"
-        ).rstrip("/")
+        self.base_url = (base_url or "http://127.0.0.1:11434").rstrip("/")
+        endpoint = urlsplit(self.base_url)
+        if (
+            endpoint.scheme != "http"
+            or endpoint.hostname not in {"127.0.0.1", "::1", "localhost"}
+            or any((endpoint.username, endpoint.password, endpoint.query, endpoint.fragment))
+        ):
+            raise ValueError("Ollama requires an HTTP loopback URL.")
         self.timeout = timeout
         self._local = threading.local()
 
@@ -97,7 +103,7 @@ class OllamaLLM:
         temperature: float,
         seed: int,
         num_predict: int,
-        json_mode: bool,
+        json_mode: bool | dict,
     ) -> str:
         body = {
             "model": model or default_model(),
@@ -111,13 +117,16 @@ class OllamaLLM:
             "options": {"temperature": temperature, "seed": seed, "num_predict": num_predict},
         }
         if json_mode:
-            body["format"] = "json"
+            body["format"] = json_mode if isinstance(json_mode, dict) else "json"
         try:
             response = self._client().post(f"{self.base_url}/api/chat", json=body)
             response.raise_for_status()
         except httpx.HTTPError as exc:
             raise LLMError(f"ollama request failed: {exc}") from exc
         return str(response.json().get("message", {}).get("content", ""))
+
+    def chat_structured(self, system, prompt, schema, *, model, temperature, seed):
+        return self._chat(system, prompt, model, temperature, seed, 2048, schema)
 
     def chat_json(self, system, user, *, model=None, temperature=0.0, seed=7, num_predict=600):
         last = ""
@@ -153,10 +162,3 @@ class OllamaLLM:
         except httpx.HTTPError:
             return []
         return sorted(m.get("name", "") for m in response.json().get("models", []) if m.get("name"))
-
-
-def cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b, strict=False))
-    na = math.sqrt(sum(x * x for x in a))
-    nb = math.sqrt(sum(y * y for y in b))
-    return dot / (na * nb) if na and nb else 0.0

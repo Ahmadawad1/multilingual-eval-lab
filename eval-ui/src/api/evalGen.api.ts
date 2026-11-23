@@ -19,7 +19,7 @@ const enc = encodeURIComponent;
 export const genApi = {
   config:     () => get<GenConfig>('/gen/config'),
   scenarios:  () => get<Scenario[]>('/gen/scenarios'),
-  playground: (body: { question: string; contexts: string[]; answer: string; reference: string; metrics?: string[]; model?: string | null; embedding_relevance?: boolean }) =>
+  playground: (body: { question: string; contexts: string[]; answer: string; reference: string; metrics?: string[]; model?: string | null }) =>
     post<PlaygroundResponse>('/gen/metrics/playground', body),
 
   startRun: (body: { dataset_id: string; version: number; spec: PipelineSpec; split: 'dev'; item_ids?: string[] | null; limit?: number | null; llm_context_metrics: boolean; judge_model?: string | null }) =>
@@ -51,6 +51,7 @@ export const genApi = {
     put<BlindTask>(`/judge-sets/${enc(id)}/labels/${enc(rater)}/${enc(sampleId)}`, label),
   clearLabels: (id: string, rater: string) => del<JudgeSetSummary>(`/judge-sets/${enc(id)}/labels/${enc(rater)}`),
 
+  startGroundingValidation: (id: string) => post<Job>(`/judge-sets/${enc(id)}/ragas-faithfulness`, {}),
   startJudgeRun: (body: { judge_id: string; set_id: string; repeats: number; temperature?: number | null; probe: 'standard' | 'consistency' }) =>
     post<Job>('/judge-runs', body),
   verbosity: (body: { judge_id: string; set_id: string; padding: string; limit?: number | null; rater?: string | null; with_faithfulness: boolean }) =>

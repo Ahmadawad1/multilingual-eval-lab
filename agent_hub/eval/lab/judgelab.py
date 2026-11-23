@@ -39,6 +39,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 
 from agent_hub.eval.lab.agreement import cohens_kappa, confusion_matrix, interpret_kappa
+from agent_hub.eval.lab.genmetrics import MetricJudge, faithfulness
 from agent_hub.eval.lab.genmodels import JudgeRun, JudgeSample, JudgeSet, JudgeSpec
 from agent_hub.eval.lab.jobs import Job
 from agent_hub.eval.lab.llm import LLM, LLMError, default_model
@@ -231,6 +232,48 @@ def run_judge(
             }
         )
     run.summary = consistency_summary(run) if repeats > 1 else _basic_summary(run)
+    run.status = "done"
+    run.finished_at = now_iso()
+    return run
+
+
+def run_grounding_validation(
+    judge: MetricJudge, judge_set: JudgeSet, job: Job | None = None
+) -> JudgeRun:
+    spec = JudgeSpec(
+        id="ragas-faithfulness",
+        name="RAGAS faithfulness",
+        model=judge.model,
+        mode="binary",
+        rubric="Pass when every claim is supported by the supplied context.",
+        reference_guided=False,
+        show_context=True,
+    )
+    run = _new_run(
+        spec, judge_set, "standard", 1, {**judge.config, "faithfulness_pass_threshold": 1.0}
+    )
+    run.fingerprint = judge.fingerprint
+    if job:
+        job.progress(0, len(judge_set.samples), spec.name)
+    for n, sample in enumerate(judge_set.samples, 1):
+        result = faithfulness(judge, sample.question, sample.answer, sample.contexts)
+        verdict = None if result.score is None else ("pass" if result.score == 1.0 else "fail")
+        run.results.append(
+            {
+                "sample_id": sample.id,
+                "kind": sample.kind,
+                "score": None,
+                "verdict": verdict,
+                "reasoning": spec.rubric,
+                "scores": [],
+                "verdicts": [verdict] if verdict else [],
+                "error": result.error,
+                "faithfulness": result.as_dict(),
+            }
+        )
+        if job:
+            job.progress(n)
+    run.summary = _basic_summary(run)
     run.status = "done"
     run.finished_at = now_iso()
     return run
@@ -467,13 +510,11 @@ def verbosity_probe(
                 human=sample.labels[rater].verdict if rater and rater in sample.labels else None,
             )
             if faithfulness_judge is not None and sample.contexts:
-                from agent_hub.eval.lab.genmetrics import faithfulness
-
                 row["faith_original"] = faithfulness(
-                    faithfulness_judge, sample.answer, sample.contexts
+                    faithfulness_judge, sample.question, sample.answer, sample.contexts
                 ).score
                 row["faith_padded"] = faithfulness(
-                    faithfulness_judge, sample.answer + pad, sample.contexts
+                    faithfulness_judge, sample.question, sample.answer + pad, sample.contexts
                 ).score
         except LLMError as exc:
             row["error"] = str(exc)

@@ -4,7 +4,7 @@ Push-Location -LiteralPath $projectRoot
 try {
     if (-not (Get-Command uv -ErrorAction SilentlyContinue)) { throw 'Install uv first: https://docs.astral.sh/uv/getting-started/installation/' }
     if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { throw 'Install Node.js 22.12+ or 24 LTS first: https://nodejs.org/' }
-    uv sync --frozen
+    uv sync --extra ragas --frozen
     if ($LASTEXITCODE -ne 0) { throw 'Python dependency installation failed.' }
     npm --prefix frontend ci
     if ($LASTEXITCODE -ne 0) { throw 'Frontend dependency installation failed.' }

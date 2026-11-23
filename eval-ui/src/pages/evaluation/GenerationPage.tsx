@@ -57,7 +57,6 @@ function Playground() {
   const [answer, setAnswer] = useState('');
   const [reference, setReference] = useState('');
   const [metrics, setMetrics] = useState<string[]>(ALL_METRICS);
-  const [embedding, setEmbedding] = useState(true);
   const [model, setModel] = useState<string | null>(null);
   const [result, setResult] = useState<PlaygroundResponse | null>(null);
   const scenario = scenarios.data?.find((s) => s.id === scenarioId);
@@ -69,7 +68,7 @@ function Playground() {
   }, [scenarioId, scenarios.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = useEvalMutation(
-    () => genApi.playground({ question, contexts, answer, reference, metrics, model, embedding_relevance: embedding }),
+    () => genApi.playground({ question, contexts, answer, reference, metrics, model }),
     { onSuccess: setResult },
   );
   const move = (i: number, d: number) => {
@@ -89,13 +88,12 @@ function Playground() {
             <SelectBox value={scenarioId} onChange={setScenarioId}
               options={(scenarios.data ?? []).map((s) => ({ value: s.id, label: s.title }))} />
           </Field>
-          <Field label="Metrics">
+          <Field label="RAGAS metrics">
             <div className="space-y-1.5">
               {ALL_METRICS.map((m) => (
                 <Toggle key={m} checked={metrics.includes(m)} label={metricLabel(m)}
                   onChange={(on) => setMetrics(on ? [...metrics, m] : metrics.filter((x) => x !== m))} />
               ))}
-              <Toggle checked={embedding} onChange={setEmbedding} label="+ embedding relevance (RAGAS method)" />
             </div>
           </Field>
           <Field label="Judge model" hint="The model that computes every metric. Change it and the fingerprint changes.">
@@ -107,7 +105,7 @@ function Playground() {
             {run.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {run.isPending ? 'Judging…' : 'Score'}
           </Button>
-          {run.isPending && <p className="text-[11px] text-muted-foreground">One LLM call per claim, per chunk and per statement — 10–30 s on a GPU.</p>}
+          {run.isPending && <p className="text-[11px] text-muted-foreground">Running the selected metrics with your local models.</p>}
           <PrincipalNote title="Which texts each metric reads">
             <strong>Faithfulness</strong>: answer ↔ context. <strong>Answer relevance</strong>: answer ↔ question.
             <strong> Context precision</strong>: context ↔ reference (rank-weighted). <strong>Context recall</strong>: reference ↔ context.
@@ -238,7 +236,6 @@ function Pipeline() {
   useEffect(() => { if (!selected && runs.data?.[0]) setSelected(runs.data[0].id); }, [runs.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!bundle) return <EmptyState icon={Split} title="Pick a dataset">Choose the frozen Kestrel dataset at the top right.</EmptyState>;
-  const perItem = llmCtx ? 14 : 9;
 
   return (
     <Bench
@@ -248,7 +245,7 @@ function Pipeline() {
           <Field label="Questions" hint={`Dev split: ${devN} questions. Leave empty for all of them.`}>
             <TextField type="number" min={1} max={devN} placeholder={`all ${devN}`} value={limit} onChange={(e) => setLimit(e.target.value ? Number(e.target.value) : '')} />
           </Field>
-          <Toggle checked={llmCtx} onChange={setLlmCtx} label="LLM context precision/recall (slower)" />
+          <Toggle checked={llmCtx} onChange={setLlmCtx} label="RAGAS context precision and recall" />
           <Field label="Metrics judge model" hint="Scores faithfulness, correctness… A different judge = a different fingerprint; the gate will refuse to compare across it.">
             <SelectBox value={judgeModel ?? ''} onChange={(v) => setJudgeModel(v || null)}
               options={[{ value: '', label: `default (${config.data?.default_model ?? '…'})` },
@@ -258,7 +255,7 @@ function Pipeline() {
             <Play className="h-4 w-4" /> Run on dev
           </Button>
           {!indexed && <p className="text-[11px] text-amber-300">Index the corpus ('off') in Golden Sets → Index first.</p>}
-          <p className="text-[11px] text-muted-foreground">≈ {perItem} LLM calls per question · about {Math.round(((limit || devN) * perItem * 0.8) / 60) || 1} min on a GPU.</p>
+          <p className="text-[11px] text-muted-foreground">For answered questions with a reference, answer correctness of 0.75 or higher counts as a pass.</p>
           <JobBar jobId={tracked.jobId} />
         </>
       }
