@@ -1,31 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Sidebar } from './Sidebar';
+import { getCurrentPage, Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { AuroraBackground } from '@/components/ai/AuroraBackground';
-
-const PAGE_TITLES: Record<string, string> = {
-  '/evaluation/dataset':     'Evaluation · Golden Sets',
-  '/evaluation/data-lab':    'Evaluation · Golden Sets',
-  '/evaluation/retrieval':   'Evaluation · Retrieval',
-  '/evaluation/normalization': 'Evaluation · Arabic Norm',
-  '/evaluation/experiments': 'Evaluation · Experiments',
-  '/evaluation/generation': 'Evaluation · Generation',
-  '/evaluation/judges': 'Evaluation · Judge Lab',
-  '/evaluation/gate': 'Evaluation · Release Gate',
-  '/evaluation/stats':       'Evaluation · Stats Lab',
-};
 
 export function AppLayout() {
   const [motion, setMotion] = useState(() => localStorage.getItem('eval-motion') !== 'paused');
   useEffect(() => {
     document.documentElement.dataset.motion = motion ? 'on' : 'paused';
   }, [motion]);
-  const { pathname } = useLocation();
-  const title =
-    PAGE_TITLES[pathname]
-    ?? Object.entries(PAGE_TITLES).find(([path]) => path !== '/' && pathname.startsWith(`${path}/`))?.[1]
-    ?? '';
+  const { pathname, search } = useLocation();
+  const { group, item } = getCurrentPage(pathname, search);
+  const title = group && item ? `${group.label} · ${item.label}` : '';
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden md:flex-row">
