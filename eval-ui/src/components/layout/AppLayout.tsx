@@ -9,8 +9,8 @@ export function AppLayout() {
   useEffect(() => {
     document.documentElement.dataset.motion = motion ? 'on' : 'paused';
   }, [motion]);
-  const { pathname, search } = useLocation();
-  const { group, item } = getCurrentPage(pathname, search);
+  const { pathname } = useLocation();
+  const { group, item } = getCurrentPage(pathname);
   const title = group && item ? `${group.label} · ${item.label}` : '';
 
   return (

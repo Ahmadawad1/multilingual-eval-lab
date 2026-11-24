@@ -44,7 +44,6 @@ function useLabTab(): [Section, (t: Section) => void] {
 
 export function StatsLabPage() {
   const [tab, setTab] = useLabTab();
-  const active = LABS.find((l) => l.id === tab) ?? LABS[0];
 
   return (
     <div className="space-y-5">
@@ -60,20 +59,6 @@ export function StatsLabPage() {
               Simulations whose true mean is known — the one setting where “did the interval cover the truth?” has an answer.
             </p>
           </div>
-          <ol className="flex flex-wrap items-center gap-1.5" aria-label="Labs">
-            {LABS.map((lab, i) => (
-              <li key={lab.id} className="flex items-center gap-1.5">
-                {i > 0 && <span className="hidden h-px w-4 bg-white/15 sm:block" />}
-                <span className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5',
-                  lab.id === tab ? 'border-neon/40 bg-neon/15 text-neon' : 'border-white/10 bg-black/25',
-                )}>
-                  <span className="font-mono text-[10px] text-neon/80">{i + 1}</span>
-                  <span className="text-[11px]">{lab.title}</span>
-                </span>
-              </li>
-            ))}
-          </ol>
         </div>
       </div>
 
@@ -108,7 +93,6 @@ export function StatsLabPage() {
         </nav>
 
         <div key={tab} className="animate-fade-in p-4 sm:p-5">
-          <p className="mb-4 text-xs text-muted-foreground">{active.blurb} · {active.title}</p>
           {tab === 'bootstrap' && <BootstrapPanel />}
           {tab === 'coverage' && <CoveragePanel />}
           {tab === 'clt' && <CltPanel />}

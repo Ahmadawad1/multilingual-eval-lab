@@ -1,7 +1,7 @@
 import type { ElementType } from 'react';
 import { Link, matchPath, useLocation } from 'react-router-dom';
 import {
-  Database, FlaskConical, Gavel, GitPullRequestArrow,
+  Database, Gavel, GitPullRequestArrow,
   Languages, MessageSquareQuote, Scale, Search, Sigma,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,7 +10,6 @@ interface NavItem {
   to: string;
   icon: ElementType;
   label: string;
-  tabs?: string[];
 }
 
 interface NavGroup {
@@ -22,28 +21,20 @@ interface NavGroup {
 const GROUPS: NavGroup[] = [
   {
     id: 'data',
-    label: 'Evaluation Data',
+    label: 'Data & Experiments',
     items: [
       { to: '/evaluation/dataset', icon: Database, label: 'Golden Sets' },
       { to: '/evaluation/normalization', icon: Languages, label: 'Arabic Normalization' },
+      { to: '/evaluation/experiments', icon: Scale, label: 'Retrieval Experiments' },
     ],
   },
   {
     id: 'playground',
     label: 'Playground',
     items: [
-      { to: '/evaluation/retrieval', icon: Search, label: 'Retrieval Probe' },
-      { to: '/evaluation/generation', icon: FlaskConical, label: 'RAGAS Metrics' },
+      { to: '/evaluation/retrieval', icon: Search, label: 'Retrieval' },
+      { to: '/evaluation/generation', icon: MessageSquareQuote, label: 'Generation' },
       { to: '/evaluation/stats', icon: Sigma, label: 'Statistics Lab' },
-    ],
-  },
-  {
-    id: 'experiments',
-    label: 'Evaluation Runs',
-    items: [
-      { to: '/evaluation/retrieval?tab=score', icon: Search, label: 'Retrieval Evaluation', tabs: ['score', 'compare'] },
-      { to: '/evaluation/generation?tab=pipeline', icon: MessageSquareQuote, label: 'Generation Evaluation', tabs: ['pipeline', 'components', 'compare'] },
-      { to: '/evaluation/experiments', icon: Scale, label: 'Retrieval Experiments' },
     ],
   },
   {
@@ -56,18 +47,17 @@ const GROUPS: NavGroup[] = [
   },
 ];
 
-export function getCurrentPage(pathname: string, search: string): { group?: NavGroup; item?: NavItem } {
-  const tab = new URLSearchParams(search).get('tab') ?? '';
-  const links = GROUPS.flatMap((group) => group.items.map((item) => ({ group, item })));
-  const matches = links.filter(({ item }) => matchPath({ path: item.to.split('?')[0], end: false }, pathname));
-  return matches.find(({ item }) => item.tabs?.includes(tab))
-    ?? matches.find(({ item }) => !item.tabs)
-    ?? {};
+export function getCurrentPage(pathname: string) {
+  for (const group of GROUPS) {
+    const item = group.items.find(({ to }) => matchPath({ path: to, end: false }, pathname));
+    if (item) return { group, item };
+  }
+  return {};
 }
 
 export function Sidebar() {
-  const { pathname, search } = useLocation();
-  const { item: currentItem } = getCurrentPage(pathname, search);
+  const { pathname } = useLocation();
+  const { item: currentItem } = getCurrentPage(pathname);
   return (
     <aside className="glass-strong z-10 max-h-[45dvh] shrink-0 overflow-y-auto border-b border-white/10 md:max-h-none md:w-56 md:border-b-0 md:border-r">
       <div className="flex h-14 items-center gap-3 px-4 md:h-16">
