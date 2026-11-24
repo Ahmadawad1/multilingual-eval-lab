@@ -55,7 +55,7 @@ export function StatsLabPage() {
         <div className="relative space-y-5 p-5 sm:p-6">
           <div className="min-w-0">
             <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-neon">Evaluation</p>
-            <h3 className="mt-1 font-display text-2xl font-semibold tracking-tight">Stats Lab</h3>
+            <h3 className="mt-1 font-display text-2xl font-semibold tracking-tight">Statistics Lab</h3>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
               Simulations whose true mean is known — the one setting where “did the interval cover the truth?” has an answer.
             </p>

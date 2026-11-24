@@ -28,10 +28,9 @@ const GROUPS: NavGroup[] = [
     items: [
       { to: '/evaluation/dataset', icon: Database, label: 'Golden Sets' },
       { to: '/evaluation/normalization', icon: Languages, label: 'Arabic Normalization' },
-      { to: '/evaluation/retrieval', icon: Search, label: 'Retrieval Evaluation' },
+      { to: '/evaluation/retrieval?tab=score', icon: Search, label: 'Retrieval Evaluation', tabs: ['score', 'compare'] },
       { to: '/evaluation/generation?tab=pipeline', icon: MessageSquareQuote, label: 'Generation Evaluation', tabs: ['pipeline', 'components', 'compare'] },
       { to: '/evaluation/experiments', icon: Scale, label: 'Retrieval Experiments' },
-      { to: '/evaluation/stats', icon: Sigma, label: 'Statistical Analysis' },
       { to: '/evaluation/judges', icon: Gavel, label: 'Judge Calibration' },
     ],
   },
@@ -40,7 +39,9 @@ const GROUPS: NavGroup[] = [
     label: 'Playground',
     icon: FlaskConical,
     items: [
-      { to: '/evaluation/generation', icon: FlaskConical, label: 'RAGAS Metrics', tabs: ['playground'] },
+      { to: '/evaluation/retrieval', icon: Search, label: 'Retrieval Probe' },
+      { to: '/evaluation/generation', icon: FlaskConical, label: 'RAGAS Metrics' },
+      { to: '/evaluation/stats', icon: Sigma, label: 'Statistics Lab' },
     ],
   },
   {
@@ -53,15 +54,13 @@ const GROUPS: NavGroup[] = [
   },
 ];
 
-export function getCurrentPage(pathname: string, search: string) {
-  const requestedTab = new URLSearchParams(search).get('tab');
-  const tab = requestedTab && ['pipeline', 'components', 'compare'].includes(requestedTab)
-    ? requestedTab : 'playground';
-  const isCurrent = ({ to, tabs }: NavItem) =>
-    Boolean(matchPath({ path: to.split('?')[0], end: false }, pathname))
-    && (tabs?.includes(tab) ?? true);
-  const group = GROUPS.find(({ items }) => items.some(isCurrent));
-  return { group, item: group?.items.find(isCurrent) };
+export function getCurrentPage(pathname: string, search: string): { group?: NavGroup; item?: NavItem } {
+  const tab = new URLSearchParams(search).get('tab') ?? '';
+  const links = GROUPS.flatMap((group) => group.items.map((item) => ({ group, item })));
+  const matches = links.filter(({ item }) => matchPath({ path: item.to.split('?')[0], end: false }, pathname));
+  return matches.find(({ item }) => item.tabs?.includes(tab))
+    ?? matches.find(({ item }) => !item.tabs)
+    ?? {};
 }
 
 export function Sidebar() {
