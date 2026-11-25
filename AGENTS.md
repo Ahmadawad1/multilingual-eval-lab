@@ -21,6 +21,14 @@
 - Never invent metrics, evaluation evidence, benchmark performance, or test outcomes.
 - Never commit secrets, weights, caches, private data, or generated runtime artifacts.
 
+## Ares Local Workstation
+- Alienware laptop running Windows 11 with 32 GB RAM.
+- Intel Core 9 CPU with 14 physical cores and 20 logical processors.
+- GPU 0: NVIDIA GeForce RTX 5070 Laptop GPU. Reported total GPU memory is 24,125 MB, including shared system memory. Reported dedicated VRAM is 7,891 MB (8 GB class).
+- GPU 1: Intel integrated graphics.
+- Approximate purchase cost: 1,500–2,000 JOD.
+- Use the dedicated NVIDIA VRAM figure when sizing local models and batches. Account for model weights, context, and runtime overhead. CPU retrieval and standard tests can run without a GPU. Record the actual device and settings used when reporting performance.
+
 ## Git and Commit Standards
 - Use Conventional Commits: `type(scope): short imperative description`.
 - Allowed lowercase types: feat, fix, refactor, test, docs, chore, perf, build, ci.
