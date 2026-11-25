@@ -38,6 +38,7 @@ from agent_hub.eval.lab.chunking import (
     locate_evidence,
 )
 from agent_hub.eval.lab.jobs import JobRegistry
+from agent_hub.eval.lab.imports import parse_bundle, parse_qrels
 from agent_hub.eval.lab.models import (
     LAB_METRICS,
     SLUG,
@@ -58,11 +59,13 @@ from agent_hub.eval.lab.runner import (
     KnowHubLab,
     index_corpus,
     index_is_current,
+    retrieval_ready,
     run_split,
     search_once,
 )
 from agent_hub.eval.lab.splits import assign_split, summarize
 from agent_hub.eval.lab.store import Bundle, Conflict, Immutable, LabStore, NotFound
+from backend.schemas import ImportRequest
 
 __all__ = ["create_app", "variant_diff"]
 
@@ -96,6 +99,10 @@ class PatchVersion(BaseModel):
 class ImportItems(BaseModel):
     jsonl: str
     mode: Literal["append", "replace"] = "append"
+
+
+class ImportQrels(BaseModel):
+    text: str = Field(max_length=10_000_000)
 
 
 class ForkBody(BaseModel):
@@ -368,6 +375,30 @@ def create_app(
         )
         return _bundle_json(store.bundle(dataset_id, 1))
 
+    @api.post("/datasets/import")
+    def import_labeled_dataset(body: ImportRequest) -> dict:
+        try:
+            data, docs, items = parse_bundle(body)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)[:2000]) from exc
+        dataset_id = _slugify(data.name)
+        store.create_dataset(
+            DatasetMeta(id=dataset_id, name=data.name, lang=data.language,
+                        description=data.description or data.source),
+            docs,
+            items,
+        )
+        return _bundle_json(store.bundle(dataset_id, 1))
+
+    @api.post("/datasets/{dataset_id}/versions/{version}/qrels/import")
+    def import_qrels(dataset_id: str, version: int, body: ImportQrels) -> dict:
+        try:
+            labels = parse_qrels(body.text)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        store.merge_qrels(dataset_id, version, labels)
+        return _bundle_json(store.bundle(dataset_id, version))
+
     @api.patch("/datasets/{dataset_id}")
     def patch_dataset(dataset_id: str, body: PatchMeta) -> dict:
         return store.update_meta(dataset_id, body.name, body.description).model_dump()
@@ -531,7 +562,7 @@ def create_app(
                 "to know-hub's SIMILARITY_THRESHOLD (0.0 on the eval stack, 0.60 on dev)."
             )
         if result.query_sent != body.query:
-            notes.append("The query was normalised before embedding — see query_sent.")
+            notes.append("The query was normalized before retrieval. See query_sent.")
         if item and item.split == "holdout":
             notes.append(
                 "This is a HOLDOUT item. Looking at its results and then changing the system turns "
@@ -561,7 +592,7 @@ def create_app(
                 "Ad-hoc runs cannot evaluate holdout items. Register an experiment — holdout access "
                 "is only allowed there, where every look is logged."
             )
-        ok, why = index_is_current(bundle, body.variant.corpus_index)
+        ok, why = retrieval_ready(bundle, body.variant)
         if not ok:
             raise IndexNotReady(why)
         job = jobs.submit(
@@ -690,7 +721,7 @@ def create_app(
                 store.save_experiment(experiment)
             for arm in body.arms:
                 variant = experiment.baseline if arm == "baseline" else experiment.treatment
-                ok, why = index_is_current(bundle, variant.corpus_index)
+                ok, why = retrieval_ready(bundle, variant)
                 if not ok:
                     raise IndexNotReady(f"{arm}: {why}")
 

@@ -304,6 +304,7 @@ export interface ReadinessReport {
 /* ── Retrieval ───────────────────────────────────────────────────────────── */
 
 export interface VariantSpec {
+  engine?: 'knowhub' | 'bm25';
   name:                string;
   level:               'document' | 'chunk';
   hybrid:              boolean;

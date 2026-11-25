@@ -6,7 +6,6 @@ From the repo root on Windows:
 
 ```powershell
 .\scripts\setup.ps1
-python scripts/start_eval_services.py
 .\scripts\start.ps1
 ```
 
@@ -14,7 +13,19 @@ The service helper uses Docker Desktop and the sibling Brainwave checkout's eval
 
 Generation uses the official RAGAS metrics for faithfulness, answer relevancy, context precision, context recall and answer correctness. Windows setup installs the RAGAS extra. Start local Ollama with the configured judge model and install `nomic-embed-text` for relevancy and correctness. Each measurement saves its model responses. Undefined or failed measurements stay unscored. Generation comparisons require matching judge fingerprints, including the RAGAS version. For answerable, non-abstained items, the lab treats RAGAS answer correctness ≥ 0.75 as a pass. This is a local decision threshold and needs validation on your data. In Judge Lab → Validate, run RAGAS faithfulness against human grounding labels. The grounding check passes when every extracted claim is supported. Retrieval with qrels still runs without a model.
 
-The application stores Golden Sets, runs, and release exports under `data/evaluation`. The original SQLite workspace, including its RAGAS evaluator and previously saved experiments, is accessible at [/workspace](http://127.0.0.1:8000/workspace). The following instructions cover that workspace.
+Golden Sets, runs, and release exports live in `data/evaluation`. The former workspace has been retired. Its SQLite data remains available through the legacy APIs for export. A JSON dataset returned in the `data` field of `GET /api/datasets/{id}` can be saved and imported under Golden Sets. Earlier runs remain in their original store.
+
+## Import judgments and run local BM25
+
+In **Golden Sets**, choose **Import labeled dataset** to import a JSON bundle with `documents`, `queries` and a `qrels` map per query. The importer also accepts the mixed-row JSONL and CSV formats in `examples/`. JSON bundles carry their language. For JSONL and CSV, set the language in the New dataset panel first. A complete import creates a new draft with all queries in the dev split.
+
+To add or update labels on an existing draft, open **Ask → Items → Import qrels** and select a UTF-8 file. Use three columns (query ID, document ID, grade) or four TREC columns (query ID, iteration, document ID, grade). Grades range from 0 to 3. Grade 0 records a judged nonrelevant document. The file must reference queries and documents already present in the draft. Import updates the grades listed in the file and keeps the other judgments.
+
+Open **Retrieval → Probe**, expand the configuration, and choose **Local BM25**. Then use **Score** to evaluate the dev split. Local BM25 builds its index in memory and uses the corpus document IDs for scoring. See the [Jordanian Arabic experiment guide](experiments/02-jordanian-msa-retrieval/Golden%20Sets%20Experiment%20Guide.docx) for a paired benchmark walkthrough.
+
+## Legacy API reference
+
+The commands and API examples below document the original SQLite backend and supporting components.
 
 
 A local-first evaluation lab for measuring, comparing and diagnosing multilingual retrieval and RAG quality, starting with Arabic. Built for AI engineering teams investigating regressions before release. The B2B commercial hypothesis is unvalidated; this is a working prototype, not a validated benchmark or production SaaS.
@@ -34,14 +45,14 @@ From the repository root in PowerShell:
 .\scripts\start.ps1
 ```
 
-Open **[the original workspace](http://127.0.0.1:8000/workspace)**. Choose **Load Arabic demo**. The app creates 18 labeled synthetic queries, 22 passages and three measured BM25 runs. Repeating the demo reuses existing matching configurations. Stop with Ctrl+C.
+Open [Golden Sets](http://127.0.0.1:8000/evaluation/dataset) and follow the import workflow above. Stop the server with Ctrl+C.
 
 If your environment does not permit PowerShell scripts, run the equivalent commands individually without changing your execution policy:
 
 ```powershell
 uv sync --frozen
-npm --prefix frontend ci
-npm --prefix frontend run build
+npm --prefix eval-ui ci
+npm --prefix eval-ui run build
 uv run --frozen --no-sync uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 

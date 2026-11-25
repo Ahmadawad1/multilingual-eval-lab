@@ -64,7 +64,7 @@ function RetrievalWorkbench({ bundle }: { bundle: DatasetBundle }) {
   const item = bundle.items.find((i) => i.id === itemId) ?? null;
   const baseRelevant = judgments ?? item?.relevant ?? {};
   const indexState = bundle.indexes[variant.corpus_index];
-  const indexReady = !!indexState?.current;
+  const indexReady = variant.engine === 'bm25' ? bundle.corpus.length > 0 : !!indexState?.current;
   const runs = useRuns(bundle.meta.id);
   const doneRuns = (runs.data ?? []).filter((r) => r.status === 'done').length;
 
@@ -530,7 +530,7 @@ function BatchRun({ bundle, variant, k, indexReady }: { bundle: DatasetBundle; v
           )}
           {!indexReady && (
             <p className="flex items-center gap-1.5 text-xs text-amber-300">
-              <AlertTriangle className="h-3.5 w-3.5" /> Index the corpus in Golden Sets → Index before scoring a split.
+              <AlertTriangle className="h-3.5 w-3.5" /> {variant.engine === 'bm25' ? 'Add documents to the Golden Set first.' : 'Index the corpus in Golden Sets → Index before scoring a split.'}
             </p>
           )}
           <JobBar jobId={jobId} />

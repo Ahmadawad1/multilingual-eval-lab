@@ -119,6 +119,7 @@ class GoldenItem(BaseModel):
     judged_nonrelevant: list[str] = Field(default_factory=list)
     #: Provenance of the question: human | synthetic | imported.
     origin: str = "human"
+    metadata: dict = Field(default_factory=dict)
 
     @field_validator("relevant")
     @classmethod
@@ -220,6 +221,7 @@ class VariantSpec(BaseModel):
     """One complete retrieval configuration — the thing an experiment varies."""
 
     name: str = "baseline"
+    engine: Literal["knowhub", "bm25"] = "knowhub"
     level: Literal["document", "chunk"] = "document"
     #: Document level only. The gRPC chunk path is vector-only by contract.
     hybrid: bool = True
@@ -317,6 +319,7 @@ class Run(BaseModel):
     dataset_status: Literal["draft", "frozen"]
     corpus_hash: str
     variant: VariantSpec
+    engine_version: str | None = None
     split: Literal["dev", "holdout", "all"]
     k: int
     status: Literal["running", "done", "failed"] = "running"

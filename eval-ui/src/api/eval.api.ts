@@ -64,6 +64,10 @@ export const evalApi = {
     put<DatasetBundle>(`${ver(id, version)}/items/${encodeURIComponent(item.id)}`, item),
   deleteItem: (id: string, version: number, itemId: string) =>
     evalClient.delete<DatasetBundle>(`${ver(id, version)}/items/${encodeURIComponent(itemId)}`).then((r) => r.data),
+  importDataset: (body: { format: 'json' | 'jsonl' | 'csv'; name: string; language: string; content: string }) =>
+    post<DatasetBundle>('/datasets/import', body),
+  importQrels: (id: string, version: number, text: string) =>
+    post<DatasetBundle>(`${ver(id, version)}/qrels/import`, { text }),
   importItems: (id: string, version: number, jsonl: string, mode: 'append' | 'replace') =>
     post<DatasetBundle>(`${ver(id, version)}/items/import`, { jsonl, mode }),
   split:  (id: string, version: number, config: SplitConfig) =>

@@ -129,6 +129,15 @@ function DatasetList() {
 
   const create = useDatasetMutation((vars: { name: string; lang: string }) => evalApi.createDataset(vars), 'Dataset created');
 
+  const importDataset = useDatasetMutation(async (file: File) => {
+    const format = file.name.split('.').pop()?.toLowerCase();
+    if (format !== 'json' && format !== 'jsonl' && format !== 'csv') throw new Error('Choose a JSON, JSONL, or CSV file.');
+    return evalApi.importDataset({
+      format, content: (await file.text()).replace(/^\uFEFF/, ''),
+      name: file.name.slice(0, -(format.length + 1)), language: lang,
+    });
+  }, 'Labeled dataset imported');
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const rows = datasets.data ?? [];
@@ -157,6 +166,7 @@ function DatasetList() {
   }
 
   function goCreated(bundle: DatasetBundle) {
+    select(bundle.meta.id, bundle.manifest.version);
     navigate(`/evaluation/dataset/${encodeURIComponent(bundle.meta.id)}`);
   }
 
@@ -185,6 +195,15 @@ function DatasetList() {
                   onChange={(e) => { setQuery(e.target.value); setPage(1); }}
                 />
               </div>
+              <label className="relative inline-flex h-10 cursor-pointer items-center rounded-lg border border-white/15 px-3 text-xs font-medium focus-within:outline focus-within:outline-neon">
+                {importDataset.isPending ? 'Importing…' : 'Import labeled dataset'}
+                <input type="file" accept=".json,.jsonl,.csv" className="sr-only"
+                  disabled={importDataset.isPending} onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    event.currentTarget.value = '';
+                    if (file) importDataset.mutate(file, { onSuccess: goCreated });
+                  }} />
+              </label>
               <Button size="sm" variant="neon" className="h-10 gap-1.5 px-4" onClick={() => setOpen(true)}>
                 <Plus className="h-3.5 w-3.5" /> New dataset
               </Button>

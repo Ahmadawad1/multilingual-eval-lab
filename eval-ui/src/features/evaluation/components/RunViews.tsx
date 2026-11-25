@@ -12,11 +12,10 @@ const PAGE_SIZE = 5;
 
 export const variantSummary = (v: VariantSpec) =>
   [
-    v.level,
-    v.level === 'document' ? (v.hybrid ? 'hybrid' : 'vector') : 'vector',
+    ...(v.engine === 'bm25' ? ['local BM25'] : [v.level, v.hybrid && v.level === 'document' ? 'hybrid' : 'vector']),
     `corpus:${v.corpus_index}`,
     `query:${v.query_normalization}`,
-    `min ${v.min_score}`,
+    ...(v.engine === 'bm25' ? [] : [`min ${v.min_score}`]),
     `fetch ${v.fetch}`,
   ].join(' · ');
 
@@ -99,6 +98,7 @@ export function RunDetail({ runId, title }: { runId: string; title?: string }) {
           </p>
           <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
             {variantSummary(run.variant)} · split <strong className="text-foreground">{run.split}</strong> · k={run.k} · {fmtTime(run.created_at)}
+            {title && <span className="block font-mono text-[11px]">{run.id}</span>}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">

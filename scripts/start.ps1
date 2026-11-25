@@ -4,7 +4,6 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $projectRoot
 try {
     if (-not (Test-Path -LiteralPath '.venv')) { throw 'Run .\scripts\setup.ps1 first.' }
-    if (-not (Test-Path -LiteralPath 'frontend/dist/index.html')) { throw 'Build the frontend: npm --prefix frontend run build' }
     if (-not (Test-Path -LiteralPath 'eval-ui/dist/index.html')) { throw 'Build Eval Lab: npm --prefix eval-ui run build' }
     # Parse only supported keys as literal strings; never evaluate .env as shell code.
     if (Test-Path -LiteralPath '.env') {

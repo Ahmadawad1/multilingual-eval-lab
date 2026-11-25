@@ -44,7 +44,7 @@
 6. Summarize functionality, checks and remaining limitations honestly.
 
 ## Useful Project Commands
-- Setup: `.\scripts\setup.ps1` or `uv sync --frozen`, `npm --prefix frontend ci`, `npm --prefix frontend run build`.
+- Setup: `.\scripts\setup.ps1` or `uv sync --frozen`, `npm --prefix eval-ui ci`, `npm --prefix eval-ui run build`.
 - Start: `.\scripts\start.ps1` (loads supported `.env` keys) → http://127.0.0.1:8000; Ctrl+C stops it.
 - Backend dev: `.\scripts\start.ps1 -Reload`; frontend dev in another terminal: `npm --prefix frontend run dev` → port 5173.
 - Optional inference after installing Ollama: `ollama serve`, then `ollama pull qwen3:4b` in a separate terminal; reuse an already running service. No model required for tests.
@@ -61,6 +61,6 @@
 
 ## Standalone Brainwave Eval Lab
 - The primary UI lives in `eval-ui/` and opens at `/evaluation/dataset`. Copying the local Brainwave Evaluation pages and their supporting code was explicitly requested. Keep the scope to Eval Lab and omit account screens.
-- The reference evaluation engine is in `agent_hub/eval/` and runs under the same guarded FastAPI process at `/api/eval`. It stores its own artifacts in `data/evaluation/`. Preserve the existing `/workspace` and SQLite APIs.
-- Build the new client with `npm --prefix eval-ui ci` and `npm --prefix eval-ui run build`. Setup builds both clients. Use `python scripts/start_eval_services.py` for the local Know Hub and Ollama dependencies from the sibling reference checkout. No Docker service needs public host ports.
+- The reference evaluation engine is in `agent_hub/eval/` and runs under the same guarded FastAPI process at `/api/eval`. It stores its own artifacts in `data/evaluation/`. Serve Golden Sets as the sole evaluation UI. Keep the legacy SQLite APIs available for export and migration.
+- Build the new client with `npm --prefix eval-ui ci` and `npm --prefix eval-ui run build`. Setup builds the Eval Lab client. Use `python scripts/start_eval_services.py` for the local Know Hub and Ollama dependencies from the sibling reference checkout. No Docker service needs public host ports.
 - Run `uv run --extra ragas pytest -q` for the combined suites. Local model checks establish connectivity and call behavior only.

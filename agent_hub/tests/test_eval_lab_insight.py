@@ -93,6 +93,7 @@ def test_new_item_fields_do_not_change_existing_hashes():
     legacy = item.model_dump(mode="json")
     legacy.pop("judged_nonrelevant")
     legacy.pop("origin")
+    legacy.pop("metadata")
     import hashlib
 
     def sha(t):

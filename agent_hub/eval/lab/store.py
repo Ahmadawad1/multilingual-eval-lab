@@ -40,7 +40,9 @@ import pathlib
 import re
 import shutil
 import threading
+import tempfile
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from agent_hub.eval.lab.models import (
@@ -77,7 +79,11 @@ ARTIFACTS = ("pool", "annotations", "candidates")
 #: Item fields added after the first schema. They are left out of the hash while
 #: they hold their default, so adding a field never changes the hash of a
 #: dataset frozen before the field existed — which would read as tampering.
-_ITEM_FIELDS_ADDED_LATER: dict[str, object] = {"judged_nonrelevant": [], "origin": "human"}
+_ITEM_FIELDS_ADDED_LATER: dict[str, object] = {
+    "judged_nonrelevant": [],
+    "origin": "human",
+    "metadata": {},
+}
 
 _LOCK = threading.RLock()
 
@@ -106,7 +112,11 @@ class Conflict(ValueError):
 
 def _file_id(value: str) -> str:
     """Use a single portable filename component for each user-supplied record ID."""
-    if not re.fullmatch(SLUG, value) or value.endswith(".") or pathlib.PureWindowsPath(value).is_reserved():
+    if (
+        not re.fullmatch(SLUG, value)
+        or value.endswith(".")
+        or pathlib.PureWindowsPath(value).is_reserved()
+    ):
         raise Conflict("Invalid record ID")
     return value
 
@@ -234,16 +244,29 @@ class LabStore:
     def get_meta(self, dataset_id: str) -> DatasetMeta:
         return DatasetMeta.model_validate(_read_json(self._ds(dataset_id) / "dataset.json"))
 
-    def create_dataset(self, meta: DatasetMeta) -> DatasetManifest:
+    def create_dataset(
+        self, meta: DatasetMeta, docs: Sequence[CorpusDoc] = (), items: Sequence[GoldenItem] = ()
+    ) -> DatasetManifest:
         with _LOCK:
-            if (self._ds(meta.id) / "dataset.json").exists():
+            target = self._ds(meta.id)
+            if target.exists():
                 raise Conflict(f"dataset {meta.id} already exists")
-            _write_json(self._ds(meta.id) / "dataset.json", meta.model_dump())
             manifest = DatasetManifest(dataset_id=meta.id, version=1)
-            vdir = self._ds(meta.id) / "v1"
-            (vdir / "corpus").mkdir(parents=True, exist_ok=True)
-            (vdir / "golden.jsonl").write_text("", encoding="utf-8")
-            _write_json(vdir / "manifest.json", manifest.model_dump())
+            with tempfile.TemporaryDirectory(dir=target.parent) as temp:
+                staged = pathlib.Path(temp) / "dataset"
+                vdir = staged / "v1"
+                (vdir / "corpus").mkdir(parents=True)
+                for doc in docs:
+                    path = vdir / "corpus" / f"{_file_id(doc.doc_id)}.json"
+                    if path.exists():
+                        raise Conflict(f"duplicate document ID {doc.doc_id}")
+                    _write_json(path, doc.model_dump())
+                (vdir / "golden.jsonl").write_text(
+                    "".join(i.model_dump_json() + "\n" for i in items), encoding="utf-8"
+                )
+                _write_json(vdir / "manifest.json", manifest.model_dump())
+                _write_json(staged / "dataset.json", meta.model_dump())
+                staged.rename(target)
             return manifest
 
     def update_meta(
@@ -364,7 +387,8 @@ class LabStore:
         with _LOCK:
             self._require_draft(dataset_id, version)
             _write_json(
-                self._ver(dataset_id, version) / "corpus" / f"{_file_id(doc.doc_id)}.json", doc.model_dump()
+                self._ver(dataset_id, version) / "corpus" / f"{_file_id(doc.doc_id)}.json",
+                doc.model_dump(),
             )
 
     def delete_doc(self, dataset_id: str, version: int, doc_id: str) -> None:
@@ -393,6 +417,39 @@ class LabStore:
             items = [i for i in existing if i.id != item.id]
             position = next((n for n, i in enumerate(existing) if i.id == item.id), len(items))
             items.insert(position, item)
+            self.replace_items(dataset_id, version, items)
+
+    def merge_qrels(self, dataset_id: str, version: int, labels: dict[str, dict[str, int]]) -> None:
+        with _LOCK:
+            self._require_draft(dataset_id, version)
+            bundle = self.bundle(dataset_id, version)
+            unknown_items = labels.keys() - {item.id for item in bundle.items}
+            unknown_docs = {
+                doc for grades in labels.values() for doc in grades
+            } - bundle.corpus.keys()
+            if unknown_items or unknown_docs:
+                raise Conflict(
+                    f"Unknown qrel IDs. Queries: {sorted(unknown_items)[:10]}. "
+                    f"Documents: {sorted(unknown_docs)[:10]}."
+                )
+            items = []
+            for item in bundle.items:
+                changes = labels.get(item.id, {})
+                if changes:
+                    item = item.model_copy(
+                        update={
+                            "relevant": {
+                                **{d: g for d, g in item.relevant.items() if d not in changes},
+                                **{d: g for d, g in changes.items() if g > 0},
+                            },
+                            "judged_nonrelevant": sorted(
+                                (set(item.judged_nonrelevant) - changes.keys())
+                                | {d for d, grade in changes.items() if grade == 0}
+                            ),
+                            "evidence": [e for e in item.evidence if changes.get(e.doc_id) != 0],
+                        }
+                    )
+                items.append(item)
             self.replace_items(dataset_id, version, items)
 
     def delete_item(self, dataset_id: str, version: int, item_id: str) -> None:
@@ -467,7 +524,8 @@ class LabStore:
     def save_experiment(self, experiment: Experiment) -> None:
         with _LOCK:
             _write_json(
-                self.root / "experiments" / f"{_file_id(experiment.id)}.json", experiment.model_dump()
+                self.root / "experiments" / f"{_file_id(experiment.id)}.json",
+                experiment.model_dump(),
             )
 
     def delete_experiment(self, experiment_id: str) -> None:

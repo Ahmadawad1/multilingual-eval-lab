@@ -37,12 +37,25 @@ export function VariantEditor({
   const changed = (key: keyof VariantSpec) => !!compareTo && compareTo[key] !== value[key];
   const ring = (key: keyof VariantSpec) => cn(changed(key) && 'rounded-md ring-1 ring-amber-400/60 ring-offset-2 ring-offset-background');
 
+  const bm25 = value.engine === 'bm25';
   return (
     <div className="space-y-3" style={accent ? { borderLeft: `2px solid ${accent}`, paddingLeft: 12 } : undefined}>
       <Field label="Name">
         <TextField value={value.name} disabled={disabled} onChange={(e) => set('name', e.target.value)} />
       </Field>
-      <div className="grid grid-cols-2 gap-3">
+      <Field label="Search engine">
+        <div className={ring('engine')}>
+          <SelectBox value={value.engine ?? 'knowhub'} disabled={disabled} onChange={(engine) => {
+            onChange(engine === 'bm25'
+              ? { ...value, engine, level: 'document', hybrid: false, min_score: 0 }
+              : { ...value, engine });
+          }} options={[
+            { value: 'knowhub', label: 'Indexed search' },
+            { value: 'bm25', label: 'Local BM25' },
+          ]} />
+        </div>
+      </Field>
+      {!bm25 && <div className="grid grid-cols-2 gap-3">
         <Field label="Level" hint={value.level === 'chunk' ? 'gRPC SemanticSearch · vector-only · scored by evidence spans' : 'HTTP search · best chunk per document'}>
           <div className={ring('level')}>
             <SelectBox value={value.level} disabled={disabled} onChange={(v) => set('level', v)}
@@ -55,12 +68,12 @@ export function VariantEditor({
               onChange={(v) => set('hybrid', v)} label="Hybrid (RRF)" />
           </div>
         </Field>
-      </div>
+      </div>}
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Corpus index" hint={NORMALIZATION_INFO[value.corpus_index]}>
+        <Field label={bm25 ? 'Corpus normalisation' : 'Corpus index'} hint={NORMALIZATION_INFO[value.corpus_index]}>
           <div className={ring('corpus_index')}>
             <SelectBox value={value.corpus_index} disabled={disabled} onChange={(v) => set('corpus_index', v)}
-              options={NORM_OPTIONS.map((o) => ({ ...o, label: `${o.label}${indexed && !indexed[o.value] ? ' (not indexed)' : ''}` }))} />
+              options={NORM_OPTIONS.map((o) => ({ ...o, label: `${o.label}${!bm25 && indexed && !indexed[o.value] ? ' (not indexed)' : ''}` }))} />
           </div>
         </Field>
         <Field label="Query normalisation" hint={NORMALIZATION_INFO[value.query_normalization]}>
@@ -70,12 +83,12 @@ export function VariantEditor({
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Min similarity" hint="0 = no floor. A threshold truncates the ranking before metrics see it.">
+        {!bm25 && <Field label="Min similarity" hint="0 = no floor. A threshold truncates the ranking before metrics see it.">
           <div className={ring('min_score')}>
             <TextField type="number" step={0.05} min={0} max={1} value={value.min_score} disabled={disabled}
               onChange={(e) => set('min_score', Math.max(0, Math.min(1, Number(e.target.value))))} />
           </div>
-        </Field>
+        </Field>}
         <Field label="Fetch depth" hint="Results requested (≤ 50). Rank-aware metrics read to max(k, 10).">
           <div className={ring('fetch')}>
             <TextField type="number" min={1} max={50} value={value.fetch} disabled={disabled}

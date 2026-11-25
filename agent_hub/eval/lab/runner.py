@@ -42,6 +42,10 @@ from agent_hub.eval.lab.models import (
 from agent_hub.eval.lab.scoring import RawHit, compute_metrics, explain, rank_chunks, rank_documents
 from agent_hub.eval.lab.store import Bundle, LabStore, owner_id_for
 from agent_hub.eval.stats import mean_ci
+from backend import ENGINE_VERSION
+from backend.normalization import normalize as normalize_bm25
+from backend.retrieval import BM25
+from backend.schemas import Document, RetrievalConfig
 
 __all__ = [
     "NORMALIZERS",
@@ -196,6 +200,27 @@ def index_is_current(bundle: Bundle, normalization: str) -> tuple[bool, str]:
     return True, ""
 
 
+def retrieval_ready(bundle: Bundle, variant: VariantSpec) -> tuple[bool, str]:
+    if variant.engine == "bm25":
+        if variant.level != "document":
+            return False, "Local BM25 ranks corpus documents or passages, not generated chunks"
+        return bool(bundle.corpus), "Add documents to the Golden Set before running BM25"
+    return index_is_current(bundle, variant.corpus_index)
+
+
+def build_bm25(bundle: Bundle, variant: VariantSpec) -> BM25:
+    return BM25(
+        [Document.model_construct(id=d.doc_id, text=d.body) for d in bundle.corpus.values()],
+        RetrievalConfig(
+            corpus_normalization="none" if variant.corpus_index == "off" else variant.corpus_index,
+            query_normalization=(
+                "none" if variant.query_normalization == "off" else variant.query_normalization
+            ),
+            k=variant.fetch,
+        ),
+    )
+
+
 def search_once(
     kh: KnowHubLab,
     bundle: Bundle,
@@ -204,12 +229,11 @@ def search_once(
     k: int,
     item: GoldenItem | None = None,
     relevant_override: dict[str, int] | None = None,
+    bm25: BM25 | None = None,
 ) -> tuple[QueryResult, dict]:
-    ok, why = index_is_current(bundle, variant.corpus_index)
+    ok, why = retrieval_ready(bundle, variant)
     if not ok:
         raise IndexNotReady(why)
-    owner = bundle.indexes[variant.corpus_index].owner_id
-
     subject = item or GoldenItem(id="adhoc", query=query)
     if relevant_override is not None:
         subject = subject.model_copy(update={"relevant": relevant_override})
@@ -217,12 +241,21 @@ def search_once(
 
     query_sent = normalize(query, NORMALIZERS[variant.query_normalization])
     started = time.perf_counter()
-    if variant.level == "chunk":
-        hits = kh.search_chunks(query_sent, owner, variant.fetch, variant.min_score)
+    if variant.engine == "bm25":
+        index = bm25 if bm25 is not None else build_bm25(bundle, variant)
+        query_sent = normalize_bm25(query, index.config.query_normalization)
+        hits = [
+            RawHit(doc_id=row["doc_id"], score=row["score"], text=bundle.corpus[row["doc_id"]].body)
+            for row in index.search(query)
+        ]
     else:
-        hits = kh.search_documents(
-            query_sent, owner, variant.fetch, variant.hybrid, variant.min_score
-        )
+        owner = bundle.indexes[variant.corpus_index].owner_id
+        if variant.level == "chunk":
+            hits = kh.search_chunks(query_sent, owner, variant.fetch, variant.min_score)
+        else:
+            hits = kh.search_documents(
+                query_sent, owner, variant.fetch, variant.hybrid, variant.min_score
+            )
     latency = (time.perf_counter() - started) * 1000
 
     if variant.level == "chunk":
@@ -287,7 +320,7 @@ def run_split(
     it immediately. A run that later fails still appears in the experiment's run
     history rather than vanishing.
     """
-    ok, why = index_is_current(bundle, variant.corpus_index)
+    ok, why = retrieval_ready(bundle, variant)
     if not ok:
         raise IndexNotReady(why)
 
@@ -301,6 +334,7 @@ def run_split(
         dataset_version=bundle.manifest.version,
         dataset_hash=bundle.current_hash,
         dataset_status=bundle.manifest.status,
+        engine_version=ENGINE_VERSION if variant.engine == "bm25" else None,
         corpus_hash=bundle.corpus_hash(variant.corpus_index),
         variant=variant,
         split=split,  # type: ignore[arg-type]
@@ -314,9 +348,10 @@ def run_split(
         job.progress(0, len(answerable), f"{arm}: {variant.name} on {split}")
 
     try:
+        bm25 = build_bm25(bundle, variant) if variant.engine == "bm25" else None
         for n, item in enumerate(answerable, start=1):
             try:
-                result, _ = search_once(kh, bundle, variant, item.query, k, item=item)
+                result, _ = search_once(kh, bundle, variant, item.query, k, item=item, bm25=bm25)
             except IndexNotReady:
                 raise
             except Exception as exc:  # noqa: BLE001

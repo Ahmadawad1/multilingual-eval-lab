@@ -57,6 +57,8 @@ export function ItemsSection({ bundle }: { bundle: DatasetBundle }) {
   const locked = bundle.manifest.status === 'frozen';
   const { id } = bundle.meta;
   const version = bundle.manifest.version;
+  const importQrels = useDatasetMutation(async (file: File) =>
+    evalApi.importQrels(id, version, await file.text()), 'Relevance judgments imported');
   const [editing, setEditing] = useState<GoldenItem | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -129,6 +131,15 @@ export function ItemsSection({ bundle }: { bundle: DatasetBundle }) {
               <TextField className="h-8 w-40 text-xs" placeholder="filter…" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }} />
               {!locked && (
                 <>
+                  <label className="relative inline-flex h-8 cursor-pointer items-center rounded-md border border-white/15 px-2 text-xs focus-within:outline focus-within:outline-neon">
+                    {importQrels.isPending ? 'Importing…' : 'Import qrels'}
+                    <input type="file" accept=".tsv,.txt,.qrels" className="sr-only"
+                      disabled={importQrels.isPending} onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        event.currentTarget.value = '';
+                        if (file) importQrels.mutate(file);
+                      }} />
+                  </label>
                   <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setShowImport((v) => !v)}>
                     <Upload className="h-3.5 w-3.5" /> JSONL
                   </Button>

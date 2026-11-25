@@ -371,13 +371,6 @@ def create_app(data_dir: Path | None = None, serve_frontend: bool = True) -> Fas
         def logo():
             return FileResponse(ROOT / "frontend/public/brainwave-logo.png")
 
-    if serve_frontend and (ROOT / "frontend" / "dist").exists():
-
-        @app.get("/workspace", include_in_schema=False)
-        def classic_workspace():
-            return FileResponse(ROOT / "frontend/dist/index.html")
-
-        app.mount("/assets", StaticFiles(directory=ROOT / "frontend/dist/assets"))
     app.mount("/", lab)
     return app
 

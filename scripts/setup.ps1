@@ -6,10 +6,6 @@ try {
     if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { throw 'Install Node.js 22.12+ or 24 LTS first: https://nodejs.org/' }
     uv sync --extra ragas --frozen
     if ($LASTEXITCODE -ne 0) { throw 'Python dependency installation failed.' }
-    npm --prefix frontend ci
-    if ($LASTEXITCODE -ne 0) { throw 'Frontend dependency installation failed.' }
-    npm --prefix frontend run build
-    if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
     npm --prefix eval-ui ci
     if ($LASTEXITCODE -ne 0) { throw 'Eval Lab dependency installation failed.' }
     npm --prefix eval-ui run build
