@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ChevronLeft, ChevronRight, Download, FileUp, Languages, Loader2, Play, RefreshCw, Search } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Download, FileUp, Loader2, Play, RefreshCw, Search } from 'lucide-react';
 import { evalApi, evalErrorMessage } from '@/api/eval.api';
 import { evalNormalizationApi as normApi } from '@/api/evalNormalization.api';
 import { Button } from '@/components/ui/button';
@@ -103,15 +103,10 @@ function NormalizationWorkspace({ options, datasets }: { options: NormalizationO
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="flex items-center gap-2 font-display text-lg font-semibold"><Languages className="h-5 w-5 text-neon" /> Arabic normalization</h3>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Measure orthographic changes against a raw baseline, inspect the rankings, and export the evidence for your article.</p>
-        </div>
-        <Pill tone="info">Passage retrieval · Experiment 3</Pill>
-      </div>
+      <header className="work-heading"><div><h2>Arabic normalization</h2>
+        <p>Compare raw and normalized text against the same retrieval judgments.</p></div></header>
 
-      <Panel title="1. Choose the evidence" icon={FileUp}
+      <Panel title="Passage dataset" icon={FileUp}
         subtitle="Import the small diagnostic bundle from docs/experiment-3, or prepare MIRACL with the guide’s CLI. These datasets are independent of Golden Sets."
         actions={<>
           <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => void qc.invalidateQueries({ queryKey: keys.datasets })}>
@@ -132,11 +127,11 @@ function NormalizationWorkspace({ options, datasets }: { options: NormalizationO
           </Field> : <EmptyState icon={FileUp} title="Start with a diagnostic dataset">
             Click Import JSON and choose examples/diagnostic-bundle.json. For MIRACL, follow the preparation guide and refresh this list after the CLI finishes.
           </EmptyState>}
-          {dataset && <DatasetProvenance dataset={dataset} />}
+          {dataset && <details><summary className="cursor-pointer text-sm">Dataset provenance</summary><DatasetProvenance dataset={dataset} /></details>}
         </div>
       </Panel>
 
-      <Panel title="2. Run the controlled comparison" icon={Play}
+      <Panel title="Comparison settings" icon={Play}
         subtitle="Raw is always the reference within each retriever. Primary metric: nDCG@10. All conditions use the same queries, judgments, and corpus.">
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -197,7 +192,7 @@ function NormalizationWorkspace({ options, datasets }: { options: NormalizationO
         </div>
       </Panel>
 
-      <Panel title="3. Read the evidence" icon={Search} subtitle="Saved reports retain the exact dataset hashes and run configuration.">
+      <Panel title="Results" icon={Search} subtitle="Saved reports retain the exact dataset hashes and run configuration.">
         <div className="space-y-3">
           {runs.isError && <p role="alert" className="text-xs text-red-400">{evalErrorMessage(runs.error)}</p>}
           {!!runs.data?.length && <Field label="Saved comparison">

@@ -30,8 +30,8 @@ const TABS: LabTab<Tab>[] = [
 export function JudgeLabPage() {
   const [tab, setTab] = useUrlTab(TABS);
   return (
-    <LabPage title="Judge Lab" tab={tab} onTab={setTab} tabs={TABS}
-      blurb={<>An LLM judge is a measuring instrument. <strong className="text-foreground">Calibrate it against humans</strong> and probe its known biases before you let it decide anything.</>}>
+    <LabPage title="Judge calibration" tab={tab} onTab={setTab} tabs={TABS}
+      blurb="Calibrate a local judge against human labels and inspect disagreements.">
       {tab === 'rubrics' && <Rubrics />}
       {tab === 'label' && <Labeling />}
       {tab === 'validate' && <Validate />}

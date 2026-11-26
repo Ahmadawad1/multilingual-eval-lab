@@ -1,3 +1,4 @@
+import { SectionNav } from '@/features/evaluation/components/SectionNav';
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
@@ -270,32 +271,13 @@ export function PairedStudyPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <Link className="text-sm text-neon" to="/evaluation/experiments">
-          ← Experiments
-        </Link>
-        <h1 className="mt-3 font-display text-2xl font-semibold">
-          Jordanian and MSA · BM25 and dense
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          One corpus, paired questions, four conditions. Review the data, lock a
-          protocol, then measure the dialect gap.
-        </p>
-      </div>
-      <nav
-        className="grid grid-cols-2 gap-2 md:grid-cols-4"
-        aria-label="Paired study steps"
-      >
-        {["data", "design", "run", "report"].map((s, i) => (
-          <Button
-            key={s}
-            variant={stage === s ? "neon" : "outline"}
-            onClick={() => setStage(s)}
-          >
-            {i + 1}. {s[0].toUpperCase() + s.slice(1)}
-          </Button>
-        ))}
-      </nav>
+      <Link className="work-back" to="/evaluation/experiments">← Experiments</Link>
+      <header className="work-heading"><div><h2>{study?.name ?? "Paired language study"}</h2>
+        <p>Compare Jordanian and MSA retrieval with BM25 and dense search.</p></div></header>
+      <SectionNav label="Paired study steps" value={stage} onChange={setStage} items={[
+        {id:"data",title:"Data"}, {id:"design",title:"Design"},
+        {id:"run",title:"Run"}, {id:"report",title:"Results"},
+      ]} />
       {error && (
         <div
           role="alert"

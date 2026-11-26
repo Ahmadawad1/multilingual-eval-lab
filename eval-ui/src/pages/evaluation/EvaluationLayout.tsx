@@ -37,15 +37,15 @@ export function EvaluationLayout() {
   const offline = status.isError;
   const showDatasetSelect = !onGoldenSets &&
     (!onExperiments || pathname === '/evaluation/experiments/paired') &&
-    !onNormalization && rows.length > 0;
+    !onNormalization && pathname !== '/evaluation/stats' && rows.length > 0;
 
   return (
     <div>
       {(intro || showDatasetSelect) && (
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div className={intro ? "work-heading mb-5" : "mb-5 flex flex-wrap items-end justify-end gap-4"}>
           {intro && (
             <div className="min-w-0 flex-1">
-              <h3 className="font-display text-lg font-semibold">{intro.title}</h3>
+              <h2>{intro.title}</h2>
               <p className="text-sm text-muted-foreground">{intro.blurb}</p>
             </div>
           )}

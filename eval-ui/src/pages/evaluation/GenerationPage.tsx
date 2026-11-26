@@ -35,7 +35,7 @@ export function GenerationPage() {
   const [tab, setTab] = useUrlTab(TABS);
   return (
     <LabPage title="Generation" tab={tab} onTab={setTab} tabs={TABS}
-      blurb={<>Generation metrics, measured on your own pipeline — and traced back to the <strong className="text-foreground">stage</strong> that caused each failure.</>}>
+      blurb="Run a pipeline, inspect an answer trace and compare generation quality.">
       {tab === 'playground' && <Playground />}
       {tab === 'pipeline' && <Pipeline />}
       {tab === 'components' && <ComponentsTab />}
@@ -88,8 +88,10 @@ function Playground() {
             <SelectBox value={scenarioId} onChange={setScenarioId}
               options={(scenarios.data ?? []).map((s) => ({ value: s.id, label: s.title }))} />
           </Field>
+          <details className="lab-settings">
+            <summary>Scoring settings <span>{metrics.length} metrics</span></summary>
           <Field label="RAGAS metrics">
-            <div className="space-y-1.5">
+            <div className="grid justify-items-start gap-2">
               {ALL_METRICS.map((m) => (
                 <Toggle key={m} checked={metrics.includes(m)} label={metricLabel(m)}
                   onChange={(on) => setMetrics(on ? [...metrics, m] : metrics.filter((x) => x !== m))} />
@@ -101,7 +103,8 @@ function Playground() {
               options={[{ value: '', label: `default (${config.data?.default_model ?? '…'})` },
                 ...(config.data?.models ?? []).filter((m) => !m.includes('embed')).map((m) => ({ value: m, label: m }))]} />
           </Field>
-          <Button className="w-full gap-1.5" disabled={run.isPending || !question.trim()} onClick={() => run.mutate(undefined)}>
+          </details>
+          <Button className="w-full gap-1.5" disabled={run.isPending || !question.trim() || !metrics.length} onClick={() => run.mutate(undefined)}>
             {run.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {run.isPending ? 'Judging…' : 'Score'}
           </Button>

@@ -27,7 +27,7 @@ export function ReleaseGatePage() {
   const [tab, setTab] = useUrlTab(TABS);
   return (
     <LabPage title="Release Gate" tab={tab} onTab={setTab} tabs={TABS}
-      blurb={<>A regression gate is a <strong className="text-foreground">policy</strong>, not a threshold. It must refuse comparisons it cannot make, and know when a change is too small for its data to see.</>}>
+      blurb="Evaluate a candidate against the release policy and record the decision.">
       {tab === 'policy' && <PolicyTab />}
       {tab === 'evaluate' && <EvaluateTab />}
       {tab === 'decisions' && <DecisionsTab />}

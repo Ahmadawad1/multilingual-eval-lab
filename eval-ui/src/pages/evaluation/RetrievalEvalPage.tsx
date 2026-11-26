@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type ElementType, type FormEvent } from 'react';
+import { SectionNav } from '@/features/evaluation/components/SectionNav';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle, ChevronDown, FlaskConical, GitCompare, History, Info, Loader2, Play, Save,
@@ -65,9 +66,6 @@ function RetrievalWorkbench({ bundle }: { bundle: DatasetBundle }) {
   const baseRelevant = judgments ?? item?.relevant ?? {};
   const indexState = bundle.indexes[variant.corpus_index];
   const indexReady = variant.engine === 'bm25' ? bundle.corpus.length > 0 : !!indexState?.current;
-  const runs = useRuns(bundle.meta.id);
-  const doneRuns = (runs.data ?? []).filter((r) => r.status === 'done').length;
-
   const search = useEvalMutation((body: SearchRequest) => evalApi.search(body), { onSuccess: setResponse });
   const saveItem = useDatasetMutation(
     (rel: Record<string, number>) => {
@@ -112,49 +110,12 @@ function RetrievalWorkbench({ bundle }: { bundle: DatasetBundle }) {
 
   const diverges = judgments !== null && JSON.stringify(judgments) !== JSON.stringify(item?.relevant ?? {});
 
-  const tabs: { id: RetrievalTab; step: string; title: string; blurb: string; icon: ElementType; count?: number }[] = [
-    { id: 'probe',   step: '1', title: 'Probe',   blurb: 'One query, ranking, arithmetic', icon: Search },
-    { id: 'score',   step: '2', title: 'Score',   blurb: 'The same config over a split',   icon: Play },
-    { id: 'compare', step: '3', title: 'Compare', blurb: 'A/B over past runs',              icon: GitCompare, count: doneRuns },
-  ];
-
   return (
     <div className="space-y-5">
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-card/30">
-        <nav className="grid grid-cols-1 gap-px bg-white/5 sm:grid-cols-3" aria-label="Retrieval stages">
-          {tabs.map((t) => {
-            const active = tab === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={cn(
-                  'relative flex items-center gap-3 px-4 py-3 text-left transition-colors',
-                  active ? 'bg-card/80' : 'bg-card/20 hover:bg-white/[0.04]',
-                )}
-              >
-                <span className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-bold',
-                  active ? 'bg-neon text-primary-foreground shadow-glow-sm' : 'bg-white/5 text-muted-foreground',
-                )}>
-                  {t.step}
-                </span>
-                <span className="min-w-0">
-                  <span className={cn('flex items-center gap-1.5 text-sm font-medium', active ? 'text-neon' : 'text-foreground')}>
-                    <t.icon className="h-3.5 w-3.5 shrink-0" /> {t.title}
-                    {t.count != null && t.count > 0 && (
-                      <span className="rounded-full bg-white/5 px-1.5 font-mono text-[10px] text-muted-foreground">{t.count}</span>
-                    )}
-                  </span>
-                  <span className="mt-0.5 hidden truncate text-[11px] text-muted-foreground md:block">{t.blurb}</span>
-                </span>
-                {active && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-neon shadow-glow-sm" />}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+      <SectionNav<RetrievalTab> label="Retrieval modes" value={tab} onChange={setTab} items={[
+        {id:'probe',title:'Try a query',icon:Search}, {id:'score',title:'Score a split',icon:Play},
+        {id:'compare',title:'Compare runs',icon:GitCompare},
+      ]} />
 
       {tab === 'probe' && (
         <div className="animate-fade-in space-y-4">
@@ -183,7 +144,7 @@ function RetrievalWorkbench({ bundle }: { bundle: DatasetBundle }) {
               {!indexReady && (
                 <p className="flex items-center gap-1.5 text-xs text-amber-300">
                   <AlertTriangle className="h-3.5 w-3.5" />
-                  {indexState ? indexState.reason : `No '${variant.corpus_index}' index`} — index the corpus in Golden Sets → Index.
+                  {indexState ? indexState.reason : `No '${variant.corpus_index}' index`} — index the corpus in Datasets → Content → Search index.
                 </p>
               )}
               {item?.split === 'holdout' && (
@@ -224,16 +185,9 @@ function RetrievalWorkbench({ bundle }: { bundle: DatasetBundle }) {
                   </Button>
                 </div>
               )}
-              <ExplainPanel response={response} k={k} />
+              <details><summary className="mb-2 cursor-pointer text-sm text-muted-foreground">Inspect metric calculations</summary><ExplainPanel response={response} k={k} /></details>
             </>
-          ) : (
-            <Panel title="Ranking" icon={FlaskConical}>
-              <EmptyState icon={FlaskConical} title="Run a query">
-                Pick a golden item to score against its judgements, or type a free query and click the grade chips to
-                judge results yourself.
-              </EmptyState>
-            </Panel>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -530,7 +484,7 @@ function BatchRun({ bundle, variant, k, indexReady }: { bundle: DatasetBundle; v
           )}
           {!indexReady && (
             <p className="flex items-center gap-1.5 text-xs text-amber-300">
-              <AlertTriangle className="h-3.5 w-3.5" /> {variant.engine === 'bm25' ? 'Add documents to the Golden Set first.' : 'Index the corpus in Golden Sets → Index before scoring a split.'}
+              <AlertTriangle className="h-3.5 w-3.5" /> {variant.engine === 'bm25' ? 'Add documents to the Golden Set first.' : 'Index the corpus in Datasets → Content → Search index before scoring a split.'}
             </p>
           )}
           <JobBar jobId={jobId} />

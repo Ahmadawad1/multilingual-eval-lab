@@ -1,3 +1,4 @@
+import { SectionNav } from '@/features/evaluation/components/SectionNav';
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -479,9 +480,9 @@ type ReportChapter = 'score' | 'verdict' | 'queries' | 'record';
 
 const REPORT_CHAPTERS: { id: ReportChapter; label: string; icon: typeof Play; hint: string }[] = [
   { id: 'score',   label: 'Score',   icon: Play,         hint: 'Run both arms' },
-  { id: 'verdict', label: 'Verdict', icon: Flag,         hint: 'Primary decision' },
+  { id: 'verdict', label: 'Primary result', icon: Flag,         hint: 'Primary decision' },
   { id: 'queries', label: 'Queries', icon: ListOrdered,  hint: 'Where the mean comes from' },
-  { id: 'record',  label: 'Record',  icon: History,      hint: 'Power, guardrails, integrity' },
+  { id: 'record',  label: 'Study record', icon: History,      hint: 'Power, guardrails, integrity' },
 ];
 
 function ExperimentReportTab({ experiment }: { experiment: Experiment }) {
@@ -498,32 +499,8 @@ function ExperimentReportTab({ experiment }: { experiment: Experiment }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div
-          className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-xl border border-white/10 bg-black/25 p-1 sm:grid-cols-4"
-          role="tablist"
-          aria-label="Report chapters"
-        >
-          {REPORT_CHAPTERS.map((c) => {
-            const active = chapter === c.id;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                title={c.hint}
-                onClick={() => setChapter(c.id)}
-                className={cn(
-                  'flex min-h-[2.25rem] items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors',
-                  active ? 'bg-neon/15 text-neon shadow-glow-inner' : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <c.icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{c.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <div className="min-w-0 flex-1"><SectionNav label="Report chapters" value={chapter} onChange={setChapter}
+          items={REPORT_CHAPTERS.map(c => ({id:c.id,title:c.label,icon:c.icon}))} /></div>
         <Segmented value={split} onChange={setSplit}
           options={[{ value: 'dev', label: 'dev' }, { value: 'holdout', label: 'holdout' }]} />
         {isFetching && <span className="text-[11px] text-muted-foreground">bootstrapping…</span>}
@@ -537,8 +514,8 @@ function ExperimentReportTab({ experiment }: { experiment: Experiment }) {
 
       <p className="text-[11px] text-muted-foreground">
         Viewing <strong className="text-foreground">{split}</strong>
-        {split === 'holdout' ? ' · confirmatory' : ' · exploratory — not a decision'}
-        {ready && report.confirmatory === false && split === 'holdout' ? ' · not yet confirmatory' : ''}
+        {split === 'dev' ? ' · exploratory' : ready ? (report.confirmatory ? ' · confirmatory' : ' · exploratory') : ''}
+
       </p>
 
       <div key={chapter} className="animate-fade-in">

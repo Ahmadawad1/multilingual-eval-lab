@@ -1,3 +1,4 @@
+import { SectionNav } from '@/features/evaluation/components/SectionNav';
 import { useEffect, useMemo, useState, type ElementType } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Activity, Dices, FlaskRound, Loader2, Play, Radar, Zap } from 'lucide-react';
@@ -47,58 +48,14 @@ export function StatsLabPage() {
 
   return (
     <div className="space-y-5">
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-card/40">
-        <div className="pointer-events-none absolute inset-0 bg-grid opacity-30" />
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-neon/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-plasma/15 blur-3xl" />
-        <div className="relative space-y-5 p-5 sm:p-6">
-          <div className="min-w-0">
-            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-neon">Evaluation</p>
-            <h3 className="mt-1 font-display text-2xl font-semibold tracking-tight">Statistics Lab</h3>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Simulations whose true mean is known — the one setting where “did the interval cover the truth?” has an answer.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-card/30">
-        <nav className="grid grid-cols-2 gap-px bg-white/5 sm:grid-cols-5" aria-label="Stats labs">
-          {LABS.map((lab) => {
-            const on = tab === lab.id;
-            return (
-              <button
-                key={lab.id}
-                type="button"
-                onClick={() => setTab(lab.id)}
-                className={cn(
-                  'relative flex items-center gap-3 px-3 py-3 text-left transition-colors sm:px-4',
-                  on ? 'bg-card/80' : 'bg-card/20 hover:bg-white/[0.04]',
-                )}
-              >
-                <span className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all',
-                  on ? 'bg-neon text-primary-foreground shadow-glow-sm' : 'bg-white/5 text-muted-foreground',
-                )}>
-                  <lab.icon className="h-4 w-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className={cn('block text-sm font-medium', on ? 'text-neon' : 'text-foreground')}>{lab.title}</span>
-                  <span className="mt-0.5 hidden truncate text-[11px] text-muted-foreground xl:block">{lab.blurb}</span>
-                </span>
-                {on && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-neon shadow-glow-sm" />}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div key={tab} className="animate-fade-in p-4 sm:p-5">
+      <header className="work-heading"><div><h2>Statistics Lab</h2><p>Explore how sample size and variation affect an evaluation.</p></div></header>
+      <SectionNav label="Statistical methods" items={LABS} value={tab} onChange={setTab} />
+      <div key={tab} className="lab-section-body">
           {tab === 'bootstrap' && <BootstrapPanel />}
           {tab === 'coverage' && <CoveragePanel />}
           {tab === 'clt' && <CltPanel />}
           {tab === 'power' && <PowerPanel />}
           {tab === 'phacking' && <PhackingPanel />}
-        </div>
       </div>
     </div>
   );

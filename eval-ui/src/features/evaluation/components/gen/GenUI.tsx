@@ -1,3 +1,4 @@
+import { SectionNav } from '@/features/evaluation/components/SectionNav';
 import { type ElementType, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Check, CircleSlash, X } from 'lucide-react';
@@ -24,46 +25,15 @@ export function useUrlTab<T extends string>(tabs: LabTab<T>[]): [T, (t: T) => vo
 }
 
 export function LabPage<T extends string>({
-  kicker = 'Evaluation', title, blurb, tabs, tab, onTab, children,
+  title, blurb, tabs, tab, onTab, children,
 }: {
-  kicker?: string; title: string; blurb: ReactNode; tabs: LabTab<T>[]; tab: T; onTab: (t: T) => void; children: ReactNode;
+  title: string; blurb: ReactNode; tabs: LabTab<T>[]; tab: T; onTab: (t: T) => void; children: ReactNode;
 }) {
-  const active = tabs.find((t) => t.id === tab) ?? tabs[0];
   return (
     <div className="space-y-5">
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-card/40">
-        <div className="pointer-events-none absolute inset-0 bg-grid opacity-30" />
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-neon/15 blur-3xl" />
-        <div className="relative p-5 sm:p-6">
-          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-neon">{kicker}</p>
-          <h3 className="mt-1 font-display text-2xl font-semibold tracking-tight">{title}</h3>
-          <div className="mt-1 max-w-3xl text-sm text-muted-foreground">{blurb}</div>
-        </div>
-      </div>
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-card/30">
-        <nav className={cn('grid gap-px bg-white/5', tabs.length >= 5 ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4')}>
-          {tabs.map((t) => {
-            const on = t.id === tab;
-            return (
-              <button key={t.id} type="button" onClick={() => onTab(t.id)}
-                className={cn('relative flex items-center gap-3 px-3 py-3 text-left transition-colors sm:px-4', on ? 'bg-card/80' : 'bg-card/20 hover:bg-white/[0.04]')}>
-                <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all', on ? 'bg-neon text-primary-foreground shadow-glow-sm' : 'bg-white/5 text-muted-foreground')}>
-                  <t.icon className="h-4 w-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className={cn('block text-sm font-medium', on ? 'text-neon' : 'text-foreground')}>{t.title}</span>
-                  <span className="mt-0.5 hidden truncate text-[11px] text-muted-foreground xl:block">{t.blurb}</span>
-                </span>
-                {on && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-neon shadow-glow-sm" />}
-              </button>
-            );
-          })}
-        </nav>
-        <div key={tab} className="animate-fade-in p-4 sm:p-5">
-          <p className="mb-4 text-xs text-muted-foreground">{active.blurb}</p>
-          {children}
-        </div>
-      </div>
+      <header className="work-heading"><div><h2>{title}</h2><p>{blurb}</p></div></header>
+      <SectionNav label={title + ' sections'} items={tabs} value={tab} onChange={onTab} />
+      <div key={tab} className="lab-section-body">{children}</div>
     </div>
   );
 }
