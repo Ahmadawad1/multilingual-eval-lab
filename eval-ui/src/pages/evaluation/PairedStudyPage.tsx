@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { evalApi, evalClient, evalErrorMessage } from "@/api/eval.api";
@@ -129,7 +129,7 @@ export function PairedStudyPage() {
   const select = useEvalStore((s) => s.select);
   const [params, setParams] = useSearchParams();
   const sid = params.get("study") ?? "";
-  const [stage, setStage] = useState("data");
+  const [stage, setStage] = useState(sid ? "run" : "data");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -155,6 +155,7 @@ export function PairedStudyPage() {
   const [reason, setReason] = useState("");
   const [selectedRun, setSelectedRun] = useState("");
   const [rowIndex, setRowIndex] = useState(0);
+  const [showImport, setShowImport] = useState(false);
   const [wanaText, setWanaText] = useState("");
   const [wanaLimit, setWanaLimit] = useState(50);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -227,30 +228,39 @@ export function PairedStudyPage() {
   };
   const edit = (id: string) => {
     const items = bundle?.items.filter((i) => i.metadata?.pair_id === id) ?? [];
-    const msa = items.find((i) => i.metadata?.form === "msa");
-    const jo = items.find((i) => i.metadata?.form === "jo");
+    const msa = items.find((i) => i.metadata?.form === 'msa');
+    const jo = items.find((i) => i.metadata?.form === 'jo');
     const base = msa ?? jo;
     setPair({
       pair_id: id,
       msa_id: msa?.id ?? `${id}_msa`,
       jo_id: jo?.id ?? `${id}_jo`,
-      msa: msa?.query ?? "",
-      jo: jo?.query ?? "",
+      msa: msa?.query ?? '',
+      jo: jo?.metadata?.authorship === 'unwritten_copy' && jo?.query === msa?.query ? '' : (jo?.query ?? ''),
       qrels: JSON.stringify(
         {
-          ...Object.fromEntries(
-            (base?.judged_nonrelevant ?? []).map((d) => [d, 0]),
-          ),
+          ...Object.fromEntries((base?.judged_nonrelevant ?? []).map((d) => [d, 0])),
           ...base?.relevant,
         },
         null,
         2,
       ),
-      source_article: String(base?.metadata?.source_article ?? ""),
+      source_article: String(base?.metadata?.source_article ?? ''),
       reviewed: base?.metadata?.pair_reviewed === true,
-      reviewer: String(base?.metadata?.reviewer ?? ""),
+      reviewer: String(base?.metadata?.reviewer ?? ''),
     });
   };
+  const loadedPair = useRef('');
+  const requestedPair = params.get('pair');
+  useEffect(() => {
+    if (requestedPair && bundle?.items.some((i) => i.metadata?.pair_id === requestedPair)) {
+      const identity = [datasetId, version, requestedPair].join('/');
+      if (loadedPair.current !== identity) {
+        loadedPair.current = identity;
+        edit(requestedPair);
+      }
+    }
+  }, [requestedPair, bundle, datasetId, version]);
   const pairField = (key: keyof PairEdit, value: string | boolean) =>
     setPair((p) => ({
       ...p,
@@ -262,7 +272,7 @@ export function PairedStudyPage() {
     <div className="space-y-5">
       <div>
         <Link className="text-sm text-neon" to="/evaluation/experiments">
-          ← Retrieval experiments
+          ← Experiments
         </Link>
         <h1 className="mt-3 font-display text-2xl font-semibold">
           Jordanian and MSA · BM25 and dense
@@ -301,7 +311,10 @@ export function PairedStudyPage() {
       )}
       {stage === "data" && (
         <>
-          <Panel title="Import a TyDi QA-WANA subset">
+          <button type="button" aria-expanded={showImport} className="work-back" onClick={() => setShowImport(!showImport)}>
+            {showImport ? "Close benchmark import" : "Import a WANA file"}
+          </button>
+          {showImport && <Panel title="Import a TyDi QA-WANA subset">
             <p className="mb-3 text-sm text-muted-foreground">
               Upload labeled Jordanian JSONL or a JSON array below 11 MB. Byte
               offsets become candidate passage qrels. MSA wording is left for
@@ -410,7 +423,7 @@ export function PairedStudyPage() {
                 </ul>
               </div>
             )}
-          </Panel>
+          </Panel>}
           {!bundle ? (
             <p>Select a Golden Set above, or import a benchmark subset.</p>
           ) : (
@@ -423,7 +436,7 @@ export function PairedStudyPage() {
                   {bundle.corpus.length} passages · {bundle.manifest.status}.
                   Existing JSON/qrels imports remain available in{" "}
                   <Link to="/evaluation/dataset" className="text-neon">
-                    Golden Sets
+                    Datasets
                   </Link>
                   .
                 </p>
@@ -546,16 +559,16 @@ export function PairedStudyPage() {
               </Panel>
               <Panel title="Validate and split by intent and source">
                 {validation.data?.issues.length ? (
-                  <ul className="mb-3 max-h-52 list-disc overflow-auto pl-5 text-sm text-amber-300">
+                  <details><summary className="mb-2 cursor-pointer text-sm">{validation.data.issues.length} review issues</summary><ul className="mb-3 max-h-52 list-disc overflow-auto pl-5 text-sm text-amber-300">
                     {validation.data.issues.map((x, i) => (
                       <li key={i}>{x}</li>
                     ))}
-                  </ul>
-                ) : (
+                  </ul></details>
+                ) : validation.isSuccess ? (
                   <p className="mb-3 text-sm text-emerald-400">
                     Pairs have matching labels and review records.
                   </p>
-                )}
+                ) : <p role="status">{validation.isError ? "Could not verify pair readiness." : "Checking pairs…"}</p>}
                 <p className="mb-3 text-sm text-muted-foreground">
                   Both forms stay together. All connected source articles and
                   relevant passages stay in one split. This prevents related

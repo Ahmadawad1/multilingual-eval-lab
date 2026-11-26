@@ -1,6 +1,6 @@
 # Brainwave Eval
 
-Open [Golden Sets](http://127.0.0.1:8000/evaluation/dataset) for the standalone Brainwave evaluation workspace. The sidebar follows the reference lab through Golden Sets, Retrieval, Arabic Norm, Experiments, Stats Lab, Generation, Judge Lab, and Release Gate. A dataset version moves through Collect, Ask, Index, Judge, Gate, and Freeze. Both the built frontend and its API run on loopback without a login.
+Open [Datasets](http://127.0.0.1:8000/evaluation/dataset) to search the local library. Use **Add dataset** to import a labeled file or create a draft. Each dataset has three sections: **Content** (questions, passages and index tools), **Review** (judgments, splits and coverage), and **Versions** (history, comparisons and readiness checks). **Continue pair review** opens an unfinished pair. Open [Experiments](http://127.0.0.1:8000/evaluation/experiments) to resume a saved retrieval comparison or paired study. **New experiment** offers retrieval settings, question variants and Arabic normalization. The frontend and API run on loopback without a login.
 
 From the repo root on Windows:
 

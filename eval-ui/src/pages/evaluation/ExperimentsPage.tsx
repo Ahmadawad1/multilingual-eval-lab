@@ -2,13 +2,13 @@
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight,
+  ArrowLeft, ArrowRight, CheckCircle2,
   ClipboardCheck, Download, FileBarChart, Flag, History, ListOrdered, Lock, Play, Plus, Save,
   Scale, Search, ShieldAlert, Trash2, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { evalApi } from '@/api/eval.api';
+import { evalApi, evalClient } from '@/api/eval.api';
 import {
   evalKeys, useDatasets, useEvalMutation, useExperimentReport, useExperiments, useJob, useRuns,
 } from '@/features/evaluation/hooks/useEval';
@@ -47,15 +47,6 @@ const blankExperiment = (datasetId: string, version: number): ExperimentInput =>
 });
 
 const PAGE_SIZE = 8;
-const LIST_SPINE = ['Design', 'Register', 'Score', 'Report'] as const;
-
-function listingStep(e: Experiment) {
-  if (e.status === 'draft') return 0;
-  if (e.status === 'concluded') return 3;
-  if (e.runs.length === 0) return 1;
-  return 2;
-}
-
 function statusTone(status: Experiment['status']): 'warn' | 'info' | 'good' {
   if (status === 'draft') return 'warn';
   if (status === 'registered') return 'info';
@@ -78,275 +69,59 @@ export function ExperimentDetailPage() {
 
 /* â”€â”€ Listing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
+interface PairedListing {
+  id: string; name: string; dataset_id: string; dataset_version: number; status: string; created_at: string;
+}
 function ExperimentList() {
-  const experiments = useExperiments();
+  const standard = useExperiments();
+  const paired = useQuery({queryKey:['paired','studies'], queryFn: async () =>
+    (await evalClient.get<PairedListing[]>('/paired/studies')).data});
   const datasets = useDatasets();
   const navigate = useNavigate();
-  const selectExperiment = useEvalStore((s) => s.selectExperiment);
-  const [query, setQuery] = useState('');
-  const [page, setPage] = useState(1);
-
-  const names = useMemo(
-    () => Object.fromEntries((datasets.data ?? []).map((d) => [d.id, d.name])),
-    [datasets.data],
-  );
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const rows = [...(experiments.data ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at));
-    if (!q) return rows;
-    return rows.filter((e) =>
-      `${e.name} ${e.id} ${e.dataset_id} ${e.hypothesis} ${e.status}`.toLowerCase().includes(q));
-  }, [experiments.data, query]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const slice = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const registeredCount = (experiments.data ?? []).filter((e) => e.status !== 'draft').length;
-  const concludedCount = (experiments.data ?? []).filter((e) => e.status === 'concluded').length;
-
-  function openExperiment(e: Experiment) {
-    selectExperiment(e.id);
-    const tab = e.status === 'draft' ? 'design' : 'report';
-    navigate(`/evaluation/experiments/${encodeURIComponent(e.id)}?tab=${tab}`);
-  }
-
-  return (
-    <div className="space-y-5">
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-card/40">
-        <div className="pointer-events-none absolute inset-0 bg-grid opacity-30" />
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-neon/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-plasma/15 blur-3xl" />
-        <div className="relative space-y-5 p-5 sm:p-6">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="min-w-0">
-              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-neon">Evaluation</p>
-              <h3 className="mt-1 font-display text-2xl font-semibold tracking-tight">Experiments</h3>
-              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Pre-register a comparison, score the arms, then read the report. Holdout access is logged.
-              </p>
-            </div>
-            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-              <Button variant="outline" onClick={() => navigate('/evaluation/experiments/paired')}>Paired language study</Button>
-              <div className="relative min-w-[180px] flex-1 sm:w-72 sm:flex-none">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <TextField
-                  className="h-10 rounded-xl bg-black/30 pl-9"
-                  placeholder="Search by name, dataset, status…"
-                  value={query}
-                  onChange={(e) => { setQuery(e.target.value); setPage(1); }}
-                />
-              </div>
-              <Button size="sm" variant="neon" className="h-10 gap-1.5 px-4"
-                onClick={() => navigate('/evaluation/experiments/new')}>
-                <Plus className="h-3.5 w-3.5" /> New experiment
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <ol className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5" aria-label="Stages">
-              {LIST_SPINE.map((label, i) => (
-                <li key={label} className="flex items-center gap-1.5">
-                  {i > 0 && <span className="hidden h-px w-4 bg-white/15 sm:block" />}
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
-                    <span className="font-mono text-[10px] text-neon/80">{i + 1}</span>
-                    <span className="text-[11px] text-muted-foreground">{label}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-            <div className="flex items-center gap-1.5">
-              <Pill>{experiments.data?.length ?? 0} experiments</Pill>
-              <Pill tone="info">{registeredCount} registered</Pill>
-              <Pill tone="good">{concludedCount} concluded</Pill>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {experiments.isLoading ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-52 animate-pulse rounded-3xl border border-white/8 bg-card/30" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-white/15 bg-card/20 px-6 py-16 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-neon/10 text-neon">
-            <Scale className="h-7 w-7" />
-          </span>
-          <p className="mt-4 font-display text-lg font-semibold">{query ? 'No matches' : 'No experiments yet'}</p>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            {query
-              ? 'Try a different search, or clear the filter.'
-              : 'Pre-register a baseline vs treatment on a frozen golden set, then score the arms.'}
-          </p>
-          {!query && (
-            <Button size="sm" variant="neon" className="mt-5 h-10 gap-1.5"
-              onClick={() => navigate('/evaluation/experiments/new')}>
-              <Plus className="h-3.5 w-3.5" /> New experiment
-            </Button>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-4 lg:grid-cols-2">
-            {slice.map((e, i) => (
-              <ExperimentCard
-                key={e.id}
-                experiment={e}
-                datasetName={names[e.dataset_id]}
-                index={i}
-                onOpen={openExperiment}
-              />
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-card/20 px-3 py-2">
-            <p className="text-xs text-muted-foreground">
-              Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
-            </p>
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={safePage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-                <Button
-                  key={n}
-                  size="sm"
-                  variant={n === safePage ? 'default' : 'ghost'}
-                  className={cn('h-8 min-w-[32px] px-2 font-mono text-xs', n === safePage && 'shadow-glow-sm')}
-                  onClick={() => setPage(n)}
-                >
-                  {n}
-                </Button>
-              ))}
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={safePage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
+  const select = useEvalStore(s => s.select);
+  const selectExperiment = useEvalStore(s => s.selectExperiment);
+  const [query,setQuery] = useState('');
+  const [page,setPage] = useState(1);
+  const rows = [
+    ...(standard.data ?? []).map(e => ({...e, kind:'Retrieval settings', paired:false})),
+    ...(paired.data ?? []).map(e => ({...e, kind:'Question variants', paired:true})),
+  ].sort((a,b) => b.created_at.localeCompare(a.created_at));
+  const datasetName = (id:string) => datasets.data?.find(d => d.id === id)?.name ?? id;
+  const matches = rows.filter(e => [e.name,e.kind,datasetName(e.dataset_id),e.status].join(' ').toLowerCase().includes(query.trim().toLowerCase()));
+  const pages = Math.max(1,Math.ceil(matches.length/PAGE_SIZE));
+  const current = Math.min(page,pages);
+  return <div className="space-y-5">
+    <header className="work-heading"><div><h2>Experiments</h2><p>Design comparisons, resume a study and inspect the evidence.</p></div>
+      <Button onClick={() => navigate('/evaluation/experiments/start')}><Plus size={16}/> New experiment</Button></header>
+    <div className="work-tools"><span className="work-caption">Studies <b>{rows.length}</b></span>
+      <label className="work-search"><Search size={15}/><input aria-label="Search experiments" placeholder="Search experiments" value={query} onChange={e => {setQuery(e.target.value);setPage(1);}}/></label></div>
+    {(standard.isError || paired.isError) && <p role="alert">Some studies could not be loaded. <button className="underline" onClick={() => { void standard.refetch(); void paired.refetch(); }}>Retry</button></p>}
+    {matches.length ? <div className="work-list"><table><thead><tr><th>Study</th><th className="wide-col">Dataset</th><th>Status</th></tr></thead>
+      <tbody>{matches.slice((current-1)*PAGE_SIZE,current*PAGE_SIZE).map(e => <tr key={e.id}><td>
+        <button className="work-name" onClick={() => {
+          select(e.dataset_id,e.dataset_version);
+          if(e.paired) navigate('/evaluation/experiments/paired?study='+encodeURIComponent(e.id));
+          else { selectExperiment(e.id); navigate('/evaluation/experiments/'+encodeURIComponent(e.id)+'?tab='+(e.status === 'draft'?'design':'report')); }
+        }}><Scale size={17}/><span>{e.name}<small>{e.kind}</small></span></button></td>
+        <td className="wide-col">{datasetName(e.dataset_id)} · v{e.dataset_version}</td><td><span className="work-state">{e.status}</span></td></tr>)}</tbody></table></div>
+      : <p className="work-empty">{standard.isLoading || paired.isLoading ? 'Loading studies…' : query ? 'No studies match your search.' : 'Your saved experiments will appear here.'}</p>}
+    {pages>1 && <div className="flex justify-end items-center gap-3 text-sm"><Button variant="ghost" disabled={current===1} onClick={()=>setPage(current-1)}>Previous</Button>{current} / {pages}<Button variant="ghost" disabled={current===pages} onClick={()=>setPage(current+1)}>Next</Button></div>}
+  </div>;
 }
 
-function ExperimentCard({
-  experiment: e, datasetName, index, onOpen,
-}: {
-  experiment: Experiment;
-  datasetName?: string;
-  index: number;
-  onOpen: (e: Experiment) => void;
-}) {
-  const step = listingStep(e);
-  const verdict = e.conclusion?.decision ? VERDICT[e.conclusion.decision.verdict] : null;
-  const cue = e.status === 'draft'
-    ? { next: 'Write the hypothesis, then register before scoring', cta: 'Open design' }
-    : e.status === 'concluded'
-      ? { next: 'Decision is frozen in the record', cta: 'View report' }
-      : e.runs.length === 0
-        ? { next: 'Registered — score both arms on a split', cta: 'Open report' }
-        : { next: 'Read the paired comparison against the criteria', cta: 'Open report' };
-  const Icon = e.status === 'concluded' ? CheckCircle2 : e.status === 'registered' ? Lock : Scale;
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpen(e)}
-      onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onOpen(e); } }}
-      style={{ animationDelay: `${index * 60}ms` }}
-      className="group relative animate-fade-in-up cursor-pointer overflow-hidden rounded-3xl border border-white/10 bg-card/40 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-neon/40 hover:shadow-glow"
-    >
-      <span className={cn(
-        'absolute inset-y-0 left-0 w-1 transition-colors',
-        e.status === 'concluded' ? 'bg-emerald-400 shadow-[0_0_12px_hsl(160_80%_50%/0.6)]'
-          : e.status === 'registered' ? 'bg-sky-400/80' : 'bg-neon/80 group-hover:bg-neon',
-      )} />
-      <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-neon/10 blur-2xl transition-opacity group-hover:opacity-100" />
-
-      <div className="relative p-5 pl-6">
-        <div className="flex items-start gap-3">
-          <span className={cn(
-            'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border transition-colors',
-            e.status === 'concluded'
-              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-              : e.status === 'registered'
-                ? 'border-sky-500/30 bg-sky-500/10 text-sky-300'
-                : 'border-neon/20 bg-neon/10 text-neon group-hover:bg-neon/20',
-          )}>
-            <Icon className="h-5 w-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="truncate font-display text-base font-semibold" title={e.name || e.id}>{e.name || 'Untitled experiment'}</p>
-              <Pill tone={statusTone(e.status)}>
-                {e.status !== 'draft' && <Lock className="h-2.5 w-2.5" />}{e.status}
-              </Pill>
-              {verdict && <Pill tone={verdict.tone}>{verdict.label}</Pill>}
-            </div>
-            <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{e.id}</p>
-          </div>
-        </div>
-
-        <ol className="mt-4 flex items-center gap-1" aria-label="Progress">
-          {LIST_SPINE.map((label, i) => {
-            const done = i < step;
-            const here = i === step;
-            return (
-              <li key={label} className="flex min-w-0 flex-1 items-center gap-1">
-                <span
-                  title={label}
-                  className={cn(
-                    'h-1.5 flex-1 rounded-full transition-colors',
-                    here ? 'bg-neon shadow-glow-sm' : done ? 'bg-neon/50' : 'bg-white/10',
-                  )}
-                />
-              </li>
-            );
-          })}
-        </ol>
-        <div className="mt-1.5 flex justify-between font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          <span>{LIST_SPINE[step]}</span>
-          <span>{step + 1}/4</span>
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-xl border border-white/8 bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Dataset</p>
-            <p className="truncate font-display text-sm font-semibold" title={datasetName ?? e.dataset_id}>
-              {datasetName ?? e.dataset_id} <span className="font-mono text-xs font-normal text-muted-foreground">v{e.dataset_version}</span>
-            </p>
-          </div>
-          <div className="rounded-xl border border-white/8 bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Primary</p>
-            <p className="truncate font-display text-sm font-semibold">{METRIC_INFO[e.criteria.primary_metric]?.short ?? e.criteria.primary_metric}</p>
-          </div>
-          <div className="rounded-xl border border-white/8 bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Runs</p>
-            <p className="font-display text-lg font-semibold tabular-nums">{e.runs.length}</p>
-          </div>
-        </div>
-
-        <p className="mt-3 line-clamp-2 text-xs text-muted-foreground" title={e.hypothesis}>
-          {e.hypothesis || 'No hypothesis written yet.'}
-        </p>
-
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/8 pt-3">
-          <p className="text-xs text-muted-foreground">{cue.next}</p>
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-neon">
-            {cue.cta} <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-          </span>
-        </div>
-      </div>
-    </div>
-  );
+export function ExperimentStartPage() {
+  const navigate=useNavigate();
+  const options=[
+    {name:'Compare retrieval settings', detail:'Run a baseline and treatment on the same questions.', path:'new', icon:Scale, structure:'Baseline / Treatment'},
+    {name:'Compare question variants', detail:'Measure the Jordanian and MSA gap with BM25 and dense retrieval.', path:'paired', icon:ListOrdered, structure:'2 forms × 2 engines'},
+    {name:'Test Arabic normalization', detail:'Compare normalization profiles on a shared passage collection.', path:'normalization', icon:ClipboardCheck, structure:'Raw → Normalized'},
+  ];
+  return <div className="work-start"><button className="work-back" onClick={()=>navigate('/evaluation/experiments')}><ArrowLeft size={15}/> Experiments</button>
+    <header className="work-heading"><div><h2>New experiment</h2><p>What would you like to test?</p></div></header>
+    <div className="work-choices">{options.map(o=><button key={o.name} onClick={()=>navigate(o.path === 'normalization' ? '/evaluation/normalization' : '/evaluation/experiments/'+o.path)}>
+      <span className="work-choice-icon"><o.icon size={22}/></span><span><strong>{o.name}</strong><small>{o.detail}</small></span><span className="work-structure">{o.structure}</span><ArrowRight size={18}/></button>)}</div>
+  </div>;
 }
-
-/* â”€â”€ Create â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function ExperimentCreate() {
   const navigate = useNavigate();

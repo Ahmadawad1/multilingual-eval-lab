@@ -23,9 +23,9 @@ const GROUPS: NavGroup[] = [
     id: 'data',
     label: 'Data & Experiments',
     items: [
-      { to: '/evaluation/dataset', icon: Database, label: 'Golden Sets' },
+      { to: '/evaluation/dataset', icon: Database, label: 'Datasets' },
       { to: '/evaluation/normalization', icon: Languages, label: 'Arabic Normalization' },
-      { to: '/evaluation/experiments', icon: Scale, label: 'Retrieval Experiments' },
+      { to: '/evaluation/experiments', icon: Scale, label: 'Experiments' },
     ],
   },
   {
@@ -62,7 +62,7 @@ export function Sidebar() {
     <aside className="glass-strong z-10 max-h-[45dvh] shrink-0 overflow-y-auto border-b border-white/10 md:max-h-none md:w-56 md:border-b-0 md:border-r">
       <div className="flex h-14 items-center gap-3 px-4 md:h-16">
         <img src="/brainwave-logo.png" width="40" height="40" className="h-10 w-10 rounded-lg object-cover" alt="" />
-        <span className="font-display text-lg font-bold tracking-tight neon-text">Brainwave Eval</span>
+        <span className="font-display text-lg font-bold tracking-tight">Brainwave Eval</span>
       </div>
       <nav aria-label="Eval Lab sections" className="grid grid-cols-2 gap-x-3 gap-y-4 px-3 pb-4 md:block md:space-y-5 md:pt-3">
         {GROUPS.map(({ id, label, items }) => (

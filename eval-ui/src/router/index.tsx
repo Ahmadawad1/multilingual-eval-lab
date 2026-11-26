@@ -5,7 +5,7 @@ import { DatasetConstructionPage } from '@/pages/evaluation/DatasetConstructionP
 import { DataLabPage }             from '@/pages/evaluation/DataLabPage';
 import { RetrievalEvalPage }       from '@/pages/evaluation/RetrievalEvalPage';
 import { NormalizationPage }       from '@/pages/evaluation/NormalizationPage';
-import { ExperimentsPage, ExperimentCreatePage, ExperimentDetailPage } from '@/pages/evaluation/ExperimentsPage';
+import { ExperimentsPage, ExperimentStartPage, ExperimentCreatePage, ExperimentDetailPage } from '@/pages/evaluation/ExperimentsPage';
 import { StatsLabPage }            from '@/pages/evaluation/StatsLabPage';
 import { GenerationPage }          from '@/pages/evaluation/GenerationPage';
 import { JudgeLabPage }            from '@/pages/evaluation/JudgeLabPage';
@@ -23,6 +23,7 @@ const evaluationRoute: RouteObject = {
     { path: 'retrieval',    element: <RetrievalEvalPage /> },
     { path: 'normalization', element: <NormalizationPage /> },
     { path: 'experiments', element: <ExperimentsPage /> },
+    { path: 'experiments/start', element: <ExperimentStartPage /> },
     { path: 'experiments/new', element: <ExperimentCreatePage /> },
     { path: 'experiments/paired', element: <PairedStudyPage /> },
     { path: 'experiments/:experimentId', element: <ExperimentDetailPage /> },

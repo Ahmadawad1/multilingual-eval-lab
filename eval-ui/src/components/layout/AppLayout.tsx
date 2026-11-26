@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { getCurrentPage, Sidebar } from './Sidebar';
 import { Header } from './Header';
-import { AuroraBackground } from '@/components/ai/AuroraBackground';
 
 export function AppLayout() {
   const [motion, setMotion] = useState(() => localStorage.getItem('eval-motion') !== 'paused');
@@ -14,8 +13,7 @@ export function AppLayout() {
   const title = group && item ? `${group.label} · ${item.label}` : '';
 
   return (
-    <div className="relative flex h-dvh flex-col overflow-hidden md:flex-row">
-      {motion && <AuroraBackground />}
+    <div className="work-shell relative flex h-dvh flex-col overflow-hidden md:flex-row">
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <Header title={title} motion={motion} toggleMotion={() => {
@@ -23,7 +21,7 @@ export function AppLayout() {
           setMotion(!motion);
         }} />
         <main className="flex-1 overflow-auto p-3 pb-16 md:p-6">
-          <div key={pathname} className="animate-fade-in-up">
+          <div key={pathname} className="work-page">
             <Outlet />
           </div>
         </main>

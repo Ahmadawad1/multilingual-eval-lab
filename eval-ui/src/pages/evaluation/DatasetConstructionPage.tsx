@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, type ElementType } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import {
-  ArrowLeft, ArrowRight, BarChart3, CheckCheck, ChevronLeft, ChevronRight, Database, FilePlus2,
-  FileText, GitCompareArrows, GitFork, Layers, Layers3, ListChecks, Lock, Plus, Scale, Scissors,
-  Search, Server, ShieldCheck, Sigma, Snowflake, Download, Bot,
+  ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Database, FilePlus2,
+  GitFork, Plus,
+  Search, Snowflake, Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,12 +12,11 @@ import {
 import { cn } from '@/lib/utils';
 import { evalApi } from '@/api/eval.api';
 import {
-  useDatasetMutation, useDatasets, useReadiness, useSelectedDataset,
+  useDatasetMutation, useDatasets, useSelectedDataset,
 } from '@/features/evaluation/hooks/useEval';
-import { ReadinessStrip } from '@/features/evaluation/components/ReadinessStrip';
 import {
   EmptyState, Field, LockedBanner, Panel, Pill, PrincipalNote, SelectBox,
-  Stat, SubTabs, TextField, downloadText,
+  Stat, TextField, downloadText,
 } from '@/features/evaluation/components/EvalPrimitives';
 import { CorpusSection } from '@/features/evaluation/components/construction/CorpusSection';
 import { ItemsSection } from '@/features/evaluation/components/construction/ItemsSection';
@@ -35,15 +34,6 @@ import { useEvalStore } from '@/store/eval.store';
 import type { DatasetBundle, DatasetSummary } from '@/types/eval';
 
 const PAGE_SIZE = 8;
-
-const LIST_SPINE = ['Collect', 'Ask', 'Index', 'Judge', 'Gate', 'Freeze'] as const;
-
-function listingStep(docs: number, items: number, frozen: boolean) {
-  if (docs === 0) return 0;
-  if (items === 0) return 1;
-  if (frozen) return 5;
-  return 4;
-}
 
 type SpineTab = 'collect' | 'ask' | 'index' | 'judge' | 'gate' | 'freeze';
 type AskTab = 'items' | 'synthetic';
@@ -78,10 +68,10 @@ function resolveSpineTab(raw: string | null, sub: string | null): SpineTab {
   if (raw === 'label') return 'judge';
   if (raw === 'versions') return 'freeze';
   if (raw && SPINE.includes(raw as SpineTab)) return raw as SpineTab;
-  return 'collect';
+  return 'ask';
 }
 
-function useSpineParams(): [SpineTab, string, (t: SpineTab, s?: string) => void, (s: string) => void] {
+function useSpineParams(): [SpineTab, string, (t: SpineTab, s?: string) => void] {
   const [params, setParams] = useSearchParams();
   const rawTab = params.get('tab');
   const rawSub = params.get('sub');
@@ -99,15 +89,7 @@ function useSpineParams(): [SpineTab, string, (t: SpineTab, s?: string) => void,
     else merged.delete('sub');
     setParams(merged);
   };
-  const setSub = (next: string) => {
-    const merged = new URLSearchParams(params);
-    merged.set('tab', tab);
-    if (next) merged.set('sub', next);
-    else merged.delete('sub');
-    setParams(merged);
-  };
-
-  return [tab, sub, setTab, setSub];
+  return [tab, sub, setTab];
 }
 
 export function DatasetConstructionPage() {
@@ -127,14 +109,20 @@ function DatasetList() {
   const [name, setName] = useState('');
   const [lang, setLang] = useState('en');
 
-  const create = useDatasetMutation((vars: { name: string; lang: string }) => evalApi.createDataset(vars), 'Dataset created');
+  const create = useDatasetMutation(
+    (vars: { name: string; lang: string }) => evalApi.createDataset(vars),
+    'Dataset created',
+  );
 
   const importDataset = useDatasetMutation(async (file: File) => {
     const format = file.name.split('.').pop()?.toLowerCase();
-    if (format !== 'json' && format !== 'jsonl' && format !== 'csv') throw new Error('Choose a JSON, JSONL, or CSV file.');
+    if (format !== 'json' && format !== 'jsonl' && format !== 'csv')
+      throw new Error('Choose a JSON, JSONL, or CSV file.');
     return evalApi.importDataset({
-      format, content: (await file.text()).replace(/^\uFEFF/, ''),
-      name: file.name.slice(0, -(format.length + 1)), language: lang,
+      format,
+      content: (await file.text()).replace(/^\uFEFF/, ''),
+      name: file.name.slice(0, -(format.length + 1)),
+      language: lang,
     });
   }, 'Labeled dataset imported');
 
@@ -148,20 +136,12 @@ function DatasetList() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const slice = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const frozenCount = (datasets.data ?? []).filter((d) => d.versions.some((v) => v.status === 'frozen')).length;
-
   function openDataset(d: DatasetSummary, version?: number) {
     const v = version ?? preferredVersion(d.versions);
     if (v == null) return;
     select(d.id, v);
-    const row = d.versions.find((x) => x.version === v);
-    const docs = row?.documents ?? 0;
-    const items = row?.items ?? 0;
-    const qs = docs === 0
-      ? 'tab=collect'
-      : items === 0
-        ? 'tab=ask&sub=items'
-        : 'tab=gate&sub=checks';
+    const snapshot = d.versions.find((row) => row.version === v);
+    const qs = snapshot?.items ? 'tab=ask&sub=items' : 'tab=collect';
     navigate(`/evaluation/dataset/${encodeURIComponent(d.id)}?${qs}`, { state: { version: v } });
   }
 
@@ -172,73 +152,64 @@ function DatasetList() {
 
   return (
     <div className="space-y-5">
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-card/40">
-        <div className="pointer-events-none absolute inset-0 bg-grid opacity-30" />
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-neon/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-plasma/15 blur-3xl" />
-        <div className="relative space-y-5 p-5 sm:p-6">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="min-w-0">
-              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-neon">Evaluation</p>
-              <h3 className="mt-1 font-display text-2xl font-semibold tracking-tight">Golden Sets</h3>
-              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                One corridor per set — collect, ask, index, judge, pass the Gate, freeze.
-              </p>
-            </div>
-            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-              <div className="relative min-w-[180px] flex-1 sm:w-72 sm:flex-none">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <TextField
-                  className="h-10 rounded-xl bg-black/30 pl-9"
-                  placeholder="Search by name, id, language…"
-                  value={query}
-                  onChange={(e) => { setQuery(e.target.value); setPage(1); }}
-                />
-              </div>
-              <label className="relative inline-flex h-10 cursor-pointer items-center rounded-lg border border-white/15 px-3 text-xs font-medium focus-within:outline focus-within:outline-neon">
-                {importDataset.isPending ? 'Importing…' : 'Import labeled dataset'}
-                <input type="file" accept=".json,.jsonl,.csv" className="sr-only"
-                  disabled={importDataset.isPending} onChange={(event) => {
-                    const file = event.currentTarget.files?.[0];
-                    event.currentTarget.value = '';
-                    if (file) importDataset.mutate(file, { onSuccess: goCreated });
-                  }} />
-              </label>
-              <Button size="sm" variant="neon" className="h-10 gap-1.5 px-4" onClick={() => setOpen(true)}>
-                <Plus className="h-3.5 w-3.5" /> New dataset
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <ol className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5" aria-label="Stages">
-              {LIST_SPINE.map((label, i) => (
-                <li key={label} className="flex items-center gap-1.5">
-                  {i > 0 && <span className="hidden h-px w-4 bg-white/15 sm:block" />}
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/25 px-2 py-0.5">
-                    <span className="font-mono text-[10px] text-neon/80">{i + 1}</span>
-                    <span className="text-[11px] text-muted-foreground">{label}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-            <div className="flex items-center gap-1.5">
-              <Pill>{datasets.data?.length ?? 0} sets</Pill>
-              <Pill tone="good">{frozenCount} frozen</Pill>
-            </div>
-          </div>
+      <header className="work-heading">
+        <div>
+          <h2>Datasets</h2>
+          <p>Manage the questions, passages and judgments behind your experiments.</p>
         </div>
+        <Button onClick={() => setOpen(true)}>
+          <Plus size={16} /> Add dataset
+        </Button>
+      </header>
+      <div className="work-tools">
+        <span className="work-caption">
+          Library <b>{datasets.data?.length ?? '…'}</b>
+        </span>
+        <label className="work-search">
+          <Search size={15} />
+          <input
+            aria-label="Search datasets"
+            placeholder="Search datasets"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
+          />
+        </label>
       </div>
 
-      <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) { setName(''); setLang('en'); } }}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) {
+            setName('');
+            setLang('en');
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New dataset</DialogTitle>
-            <DialogDescription>
-              Create an empty versioned golden set. You can add documents and items after it opens.
-            </DialogDescription>
+            <DialogTitle>Add dataset</DialogTitle>
+            <DialogDescription>Import a labeled file or create an empty dataset.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <Field label="Name">
+            <label className="work-upload">
+              Import labeled dataset <span>JSON, JSONL or CSV</span>
+              <input
+                aria-label="Import labeled dataset"
+                type="file"
+                accept=".json,.jsonl,.csv"
+                disabled={importDataset.isPending}
+                onChange={(e) => {
+                  const file = e.currentTarget.files?.[0];
+                  e.currentTarget.value = '';
+                  if (file) importDataset.mutate(file, { onSuccess: goCreated });
+                }}
+              />
+            </label>
+            <Field label="New dataset name">
               <TextField
                 autoFocus
                 placeholder="e.g. HR policies (en)"
@@ -246,24 +217,52 @@ function DatasetList() {
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && name.trim() && !create.isPending) {
-                    create.mutate({ name: name.trim(), lang }, {
-                      onSuccess: (bundle) => { setName(''); setOpen(false); goCreated(bundle); },
-                    });
+                    create.mutate(
+                      { name: name.trim(), lang },
+                      {
+                        onSuccess: (bundle) => {
+                          setName('');
+                          setOpen(false);
+                          goCreated(bundle);
+                        },
+                      },
+                    );
                   }
                 }}
               />
             </Field>
             <Field label="Language">
-              <SelectBox value={lang} onChange={setLang}
-                options={[{ value: 'en', label: 'English' }, { value: 'ar', label: 'Arabic' }]} />
+              <SelectBox
+                value={lang}
+                onChange={setLang}
+                options={[
+                  { value: 'en', label: 'English' },
+                  { value: 'ar', label: 'Arabic' },
+                ]}
+              />
             </Field>
           </div>
           <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button size="sm" className="gap-1.5" disabled={!name.trim() || create.isPending}
-              onClick={() => create.mutate({ name: name.trim(), lang }, {
-                onSuccess: (bundle) => { setName(''); setOpen(false); goCreated(bundle); },
-              })}>
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              disabled={!name.trim() || create.isPending}
+              onClick={() =>
+                create.mutate(
+                  { name: name.trim(), lang },
+                  {
+                    onSuccess: (bundle) => {
+                      setName('');
+                      setOpen(false);
+                      goCreated(bundle);
+                    },
+                  },
+                )
+              }
+            >
               <Plus className="h-3.5 w-3.5" /> Create
             </Button>
           </DialogFooter>
@@ -271,9 +270,9 @@ function DatasetList() {
       </Dialog>
 
       {datasets.isLoading ? (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-2" aria-label="Loading datasets">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-52 animate-pulse rounded-3xl border border-white/8 bg-card/30" />
+            <div key={i} className="h-12 animate-pulse rounded-md border border-white/8 bg-card/30" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -281,11 +280,13 @@ function DatasetList() {
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-neon/10 text-neon">
             <Database className="h-7 w-7" />
           </span>
-          <p className="mt-4 font-display text-lg font-semibold">{query ? 'No matches' : 'No golden set yet'}</p>
+          <p className="mt-4 font-display text-lg font-semibold">
+            {query ? 'No matches' : 'No datasets yet'}
+          </p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
             {query
               ? 'Try a different search, or clear the filter.'
-              : 'Create an empty versioned set, then walk Collect → Freeze.'}
+              : 'Add a labeled file or create your first dataset.'}
           </p>
           {!query && (
             <Button size="sm" variant="neon" className="mt-5 h-10 gap-1.5" onClick={() => setOpen(true)}>
@@ -295,259 +296,124 @@ function DatasetList() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 lg:grid-cols-2">
-            {slice.map((d, i) => (
-              <PassportCard
-                key={d.id}
-                dataset={d}
-                index={i}
-                onOpen={openDataset}
-              />
-            ))}
+          <div className="work-list">
+            <table>
+              <thead>
+                <tr>
+                  <th>Dataset</th>
+                  <th>Questions</th>
+                  <th className="wide-col">Passages</th>
+                  <th>Version</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {slice.map((d) => {
+                  const v = d.versions[d.versions.length - 1];
+                  return (
+                    <tr key={d.id}>
+                      <td>
+                        <button className="work-name" onClick={() => openDataset(d, v?.version)}>
+                          <Database size={17} />
+                          <span>
+                            {d.name}
+                            <small>{d.lang}</small>
+                          </span>
+                        </button>
+                      </td>
+                      <td>{v?.items ?? 0}</td>
+                      <td className="wide-col">{v?.documents ?? 0}</td>
+                      <td>v{v?.version ?? 1}</td>
+                      <td>
+                        <span className="work-state">{v?.status ?? 'draft'}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-card/20 px-3 py-2">
-            <p className="text-xs text-muted-foreground">
-              Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
-            </p>
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={safePage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+          {totalPages > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/8 bg-card/20 px-3 py-2">
+              <p className="text-xs text-muted-foreground">
+                Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of{' '}
+                {filtered.length}
+              </p>
+              <div className="flex items-center gap-1">
                 <Button
-                  key={n}
+                  aria-label="Previous page"
                   size="sm"
-                  variant={n === safePage ? 'default' : 'ghost'}
-                  className={cn('h-8 min-w-[32px] px-2 font-mono text-xs', n === safePage && 'shadow-glow-sm')}
-                  onClick={() => setPage(n)}
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  {n}
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
-              ))}
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" disabled={safePage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                  <Button
+                    key={n}
+                    size="sm"
+                    variant={n === safePage ? 'default' : 'ghost'}
+                    className={cn(
+                      'h-8 min-w-[32px] px-2 font-mono text-xs',
+                      n === safePage && 'shadow-glow-sm',
+                    )}
+                    onClick={() => setPage(n)}
+                  >
+                    {n}
+                  </Button>
+                ))}
+                <Button
+                  aria-label="Next page"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>
   );
 }
 
-function PassportCard({
-  dataset: d, index, onOpen,
-}: {
-  dataset: DatasetSummary;
-  index: number;
-  onOpen: (d: DatasetSummary, version?: number) => void;
-}) {
-  const ordered = [...d.versions].sort((a, b) => b.version - a.version);
-  const preferred = ordered.find((v) => v.status === 'frozen') ?? ordered[0];
-  const frozen = preferred?.status === 'frozen';
-  const items = preferred?.items ?? 0;
-  const docs = preferred?.documents ?? 0;
-  const step = listingStep(docs, items, frozen);
-  const cue = step === 0
-    ? { next: 'Collect documents into the corpus', cta: 'Open Collect' }
-    : step === 1
-      ? { next: 'Ask questions the set must answer', cta: 'Open Ask' }
-      : frozen
-        ? { next: 'Frozen — ready to measure', cta: 'Open Gate' }
-        : { next: 'Pass the Gate, then freeze', cta: 'Open Gate' };
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpen(d)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(d); } }}
-      style={{ animationDelay: `${index * 60}ms` }}
-      className="group relative animate-fade-in-up cursor-pointer overflow-hidden rounded-3xl border border-white/10 bg-card/40 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-neon/40 hover:shadow-glow"
-    >
-      <span className={cn(
-        'absolute inset-y-0 left-0 w-1 transition-colors',
-        frozen ? 'bg-emerald-400 shadow-[0_0_12px_hsl(160_80%_50%/0.6)]' : 'bg-neon/80 group-hover:bg-neon',
-      )} />
-      <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-neon/10 blur-2xl transition-opacity group-hover:opacity-100" />
-
-      <div className="relative p-5 pl-6">
-        <div className="flex items-start gap-3">
-          <span className={cn(
-            'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border transition-colors',
-            frozen
-              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-              : 'border-neon/20 bg-neon/10 text-neon group-hover:bg-neon/20',
-          )}>
-            {frozen ? <Lock className="h-5 w-5" /> : <Database className="h-5 w-5" />}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="truncate font-display text-base font-semibold" title={d.name}>{d.name}</p>
-              <Pill>{d.lang}</Pill>
-              {preferred && (
-                <Pill tone={frozen ? 'good' : 'warn'}>
-                  {frozen ? `v${preferred.version} frozen` : `v${preferred.version} draft`}
-                </Pill>
-              )}
-            </div>
-            <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{d.id}</p>
-          </div>
-        </div>
-
-        <ol className="mt-4 flex items-center gap-1" aria-label="Progress">
-          {LIST_SPINE.map((label, i) => {
-            const done = i < step;
-            const here = i === step;
-            return (
-              <li key={label} className="flex min-w-0 flex-1 items-center gap-1">
-                <span
-                  title={label}
-                  className={cn(
-                    'h-1.5 flex-1 rounded-full transition-colors',
-                    here ? 'bg-neon shadow-glow-sm' : done ? 'bg-neon/50' : 'bg-white/10',
-                  )}
-                />
-              </li>
-            );
-          })}
-        </ol>
-        <div className="mt-1.5 flex justify-between font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          <span>{LIST_SPINE[step]}</span>
-          <span>{step + 1}/6</span>
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-xl border border-white/8 bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Versions</p>
-            <p className="font-display text-lg font-semibold tabular-nums">{d.versions.length}</p>
-          </div>
-          <div className="rounded-xl border border-white/8 bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Questions</p>
-            <p className="font-display text-lg font-semibold tabular-nums">{items}</p>
-          </div>
-          <div className="rounded-xl border border-white/8 bg-black/20 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Docs</p>
-            <p className="font-display text-lg font-semibold tabular-nums">{docs}</p>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-1.5">
-          {ordered.map((v) => {
-            const active = v.version === preferred?.version;
-            return (
-              <button
-                key={v.version}
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onOpen(d, v.version); }}
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors',
-                  active
-                    ? (v.status === 'frozen'
-                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-                      : 'border-neon/40 bg-neon/10 text-neon')
-                    : 'border-white/10 text-muted-foreground hover:border-neon/40 hover:text-neon',
-                )}
-                title={`${v.items} items · ${v.documents} docs`}
-              >
-                {v.status === 'frozen' && <Lock className="h-2.5 w-2.5" />}v{v.version}
-              </button>
-            );
-          })}
-          <span className="ml-auto text-[11px] text-muted-foreground">{fmtTime(d.created_at)}</span>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/8 pt-3">
-          <p className="text-xs text-muted-foreground">{cue.next}</p>
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-neon">
-            {cue.cta} <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GateChapters({
-  value, onChange, blockers, warnings,
-}: {
-  value: GateChapter;
-  onChange: (id: string) => void;
-  blockers?: number;
-  warnings?: number;
-}) {
-  const assessed = blockers != null && warnings != null;
-  const problems = (blockers ?? 0) + (warnings ?? 0);
-  const chapters: {
-    id: GateChapter;
-    title: string;
-    blurb: string;
-    icon: ElementType;
-    badge?: { text: string; tone: 'bad' | 'warn' | 'good' };
-  }[] = [
-    {
-      id: 'checks',
-      title: 'Checks',
-      blurb: 'Ways a number would lie',
-      icon: ShieldCheck,
-      badge: assessed
-        ? (problems > 0
-          ? { text: String(problems), tone: (blockers ?? 0) > 0 ? 'bad' : 'warn' }
-          : { text: 'clear', tone: 'good' })
-        : undefined,
-    },
-    { id: 'split', title: 'Split', blurb: 'Dev iterates. Holdout waits.', icon: Scissors },
-    { id: 'power', title: 'Power', blurb: 'Smallest effect you can see', icon: Sigma },
-    { id: 'profile', title: 'Coverage', blurb: 'Thin strata are anecdotes', icon: BarChart3 },
-  ];
-
-  return (
-    <nav className="border-t border-white/5 p-2.5 sm:p-3" aria-label="Gate">
-      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
-        {chapters.map((c) => {
-          const active = value === c.id;
-          return (
-            <button
-              key={c.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => onChange(c.id)}
-              className={cn(
-                'group relative overflow-hidden rounded-xl border px-3 py-3 text-left transition-all duration-300',
-                active
-                  ? 'border-neon/50 bg-neon/[0.08] shadow-glow-inner'
-                  : 'border-white/8 bg-black/20 hover:border-white/20 hover:bg-white/[0.04]',
-              )}
-            >
-              {active && <span className="absolute inset-x-0 top-0 h-px bg-neon-gradient" />}
-              <span className="flex items-start gap-2.5">
-                <span className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
-                  active ? 'bg-neon/20 text-neon drop-glow' : 'bg-white/5 text-muted-foreground group-hover:text-foreground',
-                )}>
-                  <c.icon className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-1.5">
-                    <span className={cn('text-sm font-medium', active ? 'text-neon' : 'text-foreground')}>{c.title}</span>
-                    {c.badge && <Pill tone={c.badge.tone}>{c.badge.text}</Pill>}
-                  </span>
-                  <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{c.blurb}</span>
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
-
-/* ── Detail ──────────────────────────────────────────────────────────────── */
+type DatasetView = { tab: SpineTab; sub: string; label: string };
+const datasetSections: { name: string; views: DatasetView[] }[] = [
+  {
+    name: 'Content',
+    views: [
+      { tab: 'ask', sub: 'items', label: 'Questions' },
+      { tab: 'collect', sub: '', label: 'Passages' },
+      { tab: 'ask', sub: 'synthetic', label: 'Candidate questions' },
+      { tab: 'index', sub: 'chunking', label: 'Passage chunking' },
+      { tab: 'index', sub: 'index', label: 'Search index' },
+    ],
+  },
+  {
+    name: 'Review',
+    views: [
+      { tab: 'judge', sub: 'pool', label: 'Relevance judgments' },
+      { tab: 'judge', sub: 'audit', label: 'Reviewer agreement' },
+      { tab: 'gate', sub: 'split', label: 'Split audit' },
+      { tab: 'gate', sub: 'power', label: 'Statistical power' },
+      { tab: 'gate', sub: 'profile', label: 'Coverage' },
+    ],
+  },
+  {
+    name: 'Versions',
+    views: [
+      { tab: 'freeze', sub: 'lifecycle', label: 'Version history' },
+      { tab: 'freeze', sub: 'diff', label: 'Compare versions' },
+      { tab: 'gate', sub: 'checks', label: 'Readiness checks' },
+    ],
+  },
+];
 
 function DatasetDetail({ datasetId }: { datasetId: string }) {
   const navigate = useNavigate();
@@ -557,16 +423,17 @@ function DatasetDetail({ datasetId }: { datasetId: string }) {
   const summary = datasets.data?.find((d) => d.id === datasetId);
   const stateVersion = (location.state as { version?: number } | null)?.version;
   const queryVersion = Number(new URLSearchParams(location.search).get('v'));
-  const intendedVersion = stateVersion
-    ?? (Number.isFinite(queryVersion) && queryVersion > 0 ? queryVersion : undefined);
+  const intendedVersion =
+    stateVersion ?? (Number.isFinite(queryVersion) && queryVersion > 0 ? queryVersion : undefined);
 
   useEffect(() => {
     if (!summary?.versions.length) return;
-    const fallback = preferredVersion(summary.versions)
-      ?? summary.versions[summary.versions.length - 1].version;
-    const fromNav = intendedVersion != null && summary.versions.some((v) => v.version === intendedVersion)
-      ? intendedVersion
-      : null;
+    const fallback =
+      preferredVersion(summary.versions) ?? summary.versions[summary.versions.length - 1].version;
+    const fromNav =
+      intendedVersion != null && summary.versions.some((v) => v.version === intendedVersion)
+        ? intendedVersion
+        : null;
     if (selectedId !== datasetId) {
       select(datasetId, fromNav ?? fallback);
       return;
@@ -575,48 +442,43 @@ function DatasetDetail({ datasetId }: { datasetId: string }) {
   }, [datasetId, summary, selectedId, version, select, intendedVersion]);
 
   const { data: bundle, isLoading } = useSelectedDataset();
-  const readiness = useReadiness(5);
+
   const ready = bundle && bundle.meta.id === datasetId;
 
-  const [tab, subtab, setTab, setSub] = useSpineParams();
+  const [tab, subtab, setTab] = useSpineParams();
   const askTab = (subtab as AskTab) || 'items';
   const indexTab = (subtab as IndexTab) || 'chunking';
   const judgeTab = (subtab as JudgeTab) || 'pool';
   const gateTab = (subtab as GateChapter) || 'checks';
   const freezeTab = (subtab as FreezeTab) || 'lifecycle';
 
-  const indexReady = ready
-    ? Object.values(bundle.indexes).some((idx) => idx?.current)
-    : false;
-
-  const tabs: {
-    id: SpineTab;
-    step: string;
-    title: string;
-    blurb: string;
-    icon: ElementType;
-  }[] = [
-    { id: 'collect', step: '1', title: 'Collect', blurb: 'Documents in the corpus',     icon: FileText },
-    { id: 'ask',     step: '2', title: 'Ask',     blurb: 'Questions and candidates',    icon: ListChecks },
-    { id: 'index',   step: '3', title: 'Index',   blurb: 'Chunk, then index',           icon: Server },
-    { id: 'judge',   step: '4', title: 'Judge',   blurb: 'Pool, then audit',            icon: Scale },
-    { id: 'gate',    step: '5', title: 'Gate',    blurb: 'Can this freeze support a claim?', icon: ShieldCheck },
-    { id: 'freeze',  step: '6', title: 'Freeze',  blurb: 'Lock, fork, diff',            icon: Snowflake },
-  ];
-
+  const section =
+    datasetSections.find((group) => group.views.some((v) => v.tab === tab && v.sub === subtab)) ??
+    datasetSections[0];
+  const pending = ready
+    ? bundle.items.find((i) => i.metadata?.pair_id && !i.metadata?.pair_reviewed)
+    : undefined;
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
-          <Button size="sm" variant="ghost" className="mt-0.5 h-9 gap-1.5 text-xs"
-            onClick={() => navigate('/evaluation/dataset')}>
-            <ArrowLeft className="h-3.5 w-3.5" /> Golden Sets
+          <Button
+            size="sm"
+            variant="ghost"
+            className="mt-0.5 h-9 gap-1.5 text-xs"
+            onClick={() => navigate('/evaluation/dataset')}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Datasets
           </Button>
           <div className="min-w-0">
-            <h3 className="truncate font-display text-lg font-semibold">
+            <h3 className="font-display text-2xl font-semibold tracking-tight">
               {summary?.name ?? datasetId}
             </h3>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">{datasetId}</p>
+            <p className="text-xs text-muted-foreground">
+              {ready
+                ? `${bundle.items.length} questions · ${bundle.corpus.length.toLocaleString()} passages`
+                : datasetId}
+            </p>
           </div>
         </div>
         {summary && (
@@ -650,109 +512,53 @@ function DatasetDetail({ datasetId }: { datasetId: string }) {
         <>
           {bundle.manifest.status === 'frozen' && (
             <LockedBanner>
-              <strong className="text-foreground">v{bundle.manifest.version} is frozen</strong> — content is read-only. Label audits
-              and pools remain available; fork a new version to change documents, items or labels.
+              <strong className="text-foreground">v{bundle.manifest.version} is frozen</strong> — content is
+              read-only. Label audits and pools remain available; fork a new version to change documents,
+              items or labels.
             </LockedBanner>
           )}
 
-          {tab !== 'gate' && (
-            <ReadinessStrip
-              report={readiness.data}
-              bundle={bundle}
-              loading={readiness.isFetching}
-              onReview={() => setTab('gate', 'checks')}
-            />
+          <div className="work-detail-nav">
+            <nav aria-label="Dataset sections">
+              {datasetSections.map((group) => (
+                <button
+                  key={group.name}
+                  aria-current={group === section ? 'page' : undefined}
+                  onClick={() => setTab(group.views[0].tab, group.views[0].sub)}
+                >
+                  {group.name}
+                </button>
+              ))}
+            </nav>
+            <select
+              aria-label={section.name + ' view'}
+              value={tab + '|' + subtab}
+              onChange={(e) => {
+                const view = section.views.find((v) => v.tab + '|' + v.sub === e.target.value);
+                if (view) setTab(view.tab, view.sub);
+              }}
+            >
+              {section.views.map((v) => (
+                <option key={v.tab + v.sub} value={v.tab + '|' + v.sub}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {section.name !== 'Versions' && pending && bundle.manifest.status !== 'frozen' && (
+            <Button
+              onClick={() =>
+                navigate(
+                  '/evaluation/experiments/paired?pair=' +
+                    encodeURIComponent(String(pending.metadata?.pair_id)),
+                )
+              }
+            >
+              Continue pair review <ArrowRight size={15} />
+            </Button>
           )}
 
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-card/30">
-            <nav className="grid grid-cols-2 gap-px bg-white/5 sm:grid-cols-3 lg:grid-cols-6" aria-label="Golden set stages">
-              {tabs.map((t) => {
-                const active = tab === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTab(t.id)}
-                    className={cn(
-                      'relative flex items-center gap-3 px-3 py-3 text-left transition-colors sm:px-4',
-                      active ? 'bg-card/80' : 'bg-card/20 hover:bg-white/[0.04]',
-                    )}
-                  >
-                    <span className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-bold transition-all',
-                      active ? 'bg-neon text-primary-foreground shadow-glow-sm' : 'bg-white/5 text-muted-foreground',
-                    )}>
-                      {t.step}
-                    </span>
-                    <span className="min-w-0">
-                      <span className={cn('flex items-center gap-1.5 text-sm font-medium', active ? 'text-neon' : 'text-foreground')}>
-                        <t.icon className="h-3.5 w-3.5 shrink-0" /> {t.title}
-                      </span>
-                      <span className="mt-0.5 hidden truncate text-[11px] text-muted-foreground xl:block">{t.blurb}</span>
-                    </span>
-                    {active && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-neon shadow-glow-sm" />}
-                  </button>
-                );
-              })}
-            </nav>
-            {tab === 'ask' && (
-              <SubTabs
-                label="Ask"
-                value={askTab}
-                onChange={setSub}
-                options={[
-                  { id: 'items', label: 'Questions', icon: ListChecks, count: bundle.items.length },
-                  { id: 'synthetic', label: 'Candidates', icon: Bot },
-                ]}
-              />
-            )}
-            {tab === 'index' && (
-              <SubTabs
-                label="Index"
-                value={indexTab}
-                onChange={setSub}
-                options={[
-                  { id: 'chunking', label: 'Chunking', icon: Layers },
-                  { id: 'index', label: 'Index', icon: Server, count: indexReady ? 'ready' : 'pending' },
-                ]}
-              />
-            )}
-            {tab === 'judge' && (
-              <SubTabs
-                label="Judge"
-                value={judgeTab}
-                onChange={setSub}
-                options={[
-                  { id: 'pool', label: 'Pool', icon: Layers3 },
-                  { id: 'audit', label: 'Audit', icon: CheckCheck },
-                ]}
-              />
-            )}
-            {tab === 'gate' && (
-              <GateChapters
-                value={gateTab}
-                onChange={setSub}
-                blockers={readiness.data?.counts.blocker}
-                warnings={readiness.data?.counts.warning}
-              />
-            )}
-            {tab === 'freeze' && (
-              <SubTabs
-                label="Freeze"
-                value={freezeTab}
-                onChange={setSub}
-                options={[
-                  { id: 'lifecycle', label: 'Lifecycle', icon: Snowflake, count: bundle.manifest.status },
-                  { id: 'diff', label: 'Diff', icon: GitCompareArrows },
-                ]}
-              />
-            )}
-          </div>
-
-          <div
-            key={`${tab}-${subtab}`}
-            className="animate-fade-in space-y-4"
-          >
+          <div key={`${tab}-${subtab}`} className="animate-fade-in space-y-4">
             {tab === 'collect' && <CorpusSection bundle={bundle} />}
             {tab === 'ask' && askTab === 'items' && <ItemsSection bundle={bundle} />}
             {tab === 'ask' && askTab === 'synthetic' && <SyntheticSection bundle={bundle} />}
