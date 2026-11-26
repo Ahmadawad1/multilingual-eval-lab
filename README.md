@@ -17,6 +17,10 @@ Golden Sets, runs, and release exports live in `data/evaluation`. The former wor
 
 ## Run the Jordanian and MSA paired study
 
+For an accessible Mr. TyDi Arabic pilot, run `uv run --with pyarrow python -m scripts.prepare_mrtydi` from the repository root. This downloads a pinned Arabic training shard and writes a seeded 50-question draft with shared passages to `data/mrtydi-ar-pilot/import-paired-draft.json`. Import this file through Golden Sets → Import labeled dataset (not the WANA adapter). `questions-only.jsonl` contains only opaque pair IDs, source questions and blank rewriting/review fields; use this file for passage-blind Jordanian authorship. Save edits in a separate file because rerunning preparation regenerates the outputs.
+
+In Paired language study, replace each JO copy with a human-written or human-reviewed Jordanian equivalent; confirm that the original question is MSA, review qrels and record the reviewer. All pairs start unreviewed. The pilot searches the union of the sample's positive and BM25-sampled negative passages, not the full benchmark corpus; missing labels require review. `manifest.json` records source revision, hashes and selected query IDs. WANA's official downloads were returning 403 when checked on 26 November 2026, and its repository is archived.
+
 Open [Paired language study](http://127.0.0.1:8000/evaluation/experiments/paired) from Retrieval Experiments. Follow **Data → Design → Run → Report**:
 
 1. Import a labeled dataset or preview a Jordanian TyDi QA-WANA JSONL/JSON subset (below 11 MB). Review the generated candidate labels, write an equivalent MSA question and record the reviewer for each pair.

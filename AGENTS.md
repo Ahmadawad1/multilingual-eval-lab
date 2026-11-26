@@ -61,6 +61,7 @@
 - Python lint/format: `uv run ruff check backend tests scripts`; `uv run ruff format backend tests scripts`.
 - Frontend type check: `npm --prefix frontend run check`; formatting: `npm --prefix frontend run format` (or `format:check`); build: `npm --prefix frontend run build`.
 - Verify exported JSON: `uv run python -m backend.replay path/to/evaluation.json`.
+- Prepare the Mr. TyDi Arabic pilot: `uv run --with pyarrow python -m scripts.prepare_mrtydi`. Outputs stay under ignored `data/mrtydi-ar-pilot`; question-only rewriting inputs must never contain passages or answers. This is a reduced-corpus adaptation with unreviewed JO copies, not a completed paired benchmark.
 - Keep `uv.lock` and `frontend/package-lock.json` committed. Preserve localhost defaults and 12 MB request limits.
 
 - Product name: Brainwave Eval; repository/package name remains multilingual-eval-lab.
