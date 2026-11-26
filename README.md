@@ -15,6 +15,20 @@ Generation uses the official RAGAS metrics for faithfulness, answer relevancy, c
 
 Golden Sets, runs, and release exports live in `data/evaluation`. The former workspace has been retired. Its SQLite data remains available through the legacy APIs for export. A JSON dataset returned in the `data` field of `GET /api/datasets/{id}` can be saved and imported under Golden Sets. Earlier runs remain in their original store.
 
+## Run the Jordanian and MSA paired study
+
+Open [Paired language study](http://127.0.0.1:8000/evaluation/experiments/paired) from Retrieval Experiments. Follow **Data → Design → Run → Report**:
+
+1. Import a labeled dataset or preview a Jordanian TyDi QA-WANA JSONL/JSON subset (below 11 MB). Review the generated candidate labels, write an equivalent MSA question and record the reviewer for each pair.
+2. Assign source-connected dev/holdout splits and freeze the version. Both forms share labels and stay together; linked articles and passages cannot cross splits.
+3. Start local Ollama and install `bge-m3` (or supported `nomic-embed-text`). Select the installed model, write the hypothesis and rationale, and choose the primary contrast, effect threshold, cutoff and confidence level. Save and register the protocol.
+4. Run the four BM25/dense × MSA/Jordanian conditions on dev, then the registered holdout. Prior evaluated material requires an exploratory rerun reason. Failures remain in the history.
+5. Inspect four-cell Hit@k, paired contrasts, source-cluster bootstrap intervals and ranked passages. Export the complete ZIP with protocol, data, model/index identity, all attempts and CSV results.
+
+This workflow talks directly to loopback Ollama; Know Hub is not required. Both engines rank the same full passages. No silent truncation or automatic weight download is performed. Real dense execution requires a running local embedding model; automated tests use test doubles and do not establish GPU performance. The bounds are 500 pairs and 10,000 passages, with one active paired job.
+
+Verify an exported archive with `uv run python scripts/replay_paired.py path/to/experiment.zip`. Replay checks checksums and recomputes point estimates from saved rankings; it does not rerun inference or validate bootstrap assumptions. The updated Word learning guide is in `experiments/02-jordanian-msa-retrieval/Golden Sets Experiment Guide.docx`.
+
 ## Import judgments and run local BM25
 
 In **Golden Sets**, choose **Import labeled dataset** to import a JSON bundle with `documents`, `queries` and a `qrels` map per query. The importer also accepts the mixed-row JSONL and CSV formats in `examples/`. JSON bundles carry their language. For JSONL and CSV, set the language in the New dataset panel first. A complete import creates a new draft with all queries in the dev split.

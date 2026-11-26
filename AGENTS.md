@@ -4,7 +4,7 @@
 - Repository: `Ahmadawad1/multilingual-eval-lab`; default branch is `master`.
 - Help AI engineering teams measure multilingual retrieval and RAG quality, compare runs, and diagnose regressions. The Arabic B2B demand hypothesis is unvalidated.
 - Arabic-first, multilingual-ready. MVP: dataset import, BM25, normalization, deterministic metrics, paired comparisons, failure inspection, optional local generation/judging, reports.
-- Exclude cloud hosting, paid APIs, authentication, billing, embedding pipelines, and distributed jobs. All runtime operation must be local and free.
+- Exclude cloud hosting, paid APIs, authentication, billing, and distributed jobs. All runtime operation must be local and free. The user-authorized paired retrieval workflow supports a bounded local Ollama embedding index.
 
 ## Technology and Architecture
 - Stack: React/TypeScript/Vite + Tailwind CSS frontend; Python/FastAPI backend; SQLite JSON snapshots on the local filesystem; CPU BM25 and NumPy bootstrap. No model is required.
@@ -72,4 +72,6 @@
 - The reference evaluation engine is in `agent_hub/eval/` and runs under the same guarded FastAPI process at `/api/eval`. It stores its own artifacts in `data/evaluation/`. Serve Golden Sets as the sole evaluation UI. Keep the legacy SQLite APIs available for export and migration.
 - Build the new client with `npm --prefix eval-ui ci` and `npm --prefix eval-ui run build`. Setup builds the Eval Lab client. Use `python scripts/start_eval_services.py` for the local Know Hub and Ollama dependencies from the sibling reference checkout. No Docker service needs public host ports.
 - Run `uv run --extra ragas pytest -q` for the combined suites. Local model checks establish connectivity and call behavior only.
-- The Jordanian/MSA study helper at `experiments/02-jordanian-msa-retrieval/export_pairs.py` accepts completed document-level BM25 or dense-only Indexed search runs. Use `uv run python experiments/02-jordanian-msa-retrieval/export_pairs.py BM25_RUN OUTPUT --dense-run DENSE_RUN` for paired engine contrasts. Keep the same dataset version, split and retrieval controls; record external embedding model identity separately. These exports are exploratory and do not implement a registered query-form interaction in the UI.
+- The complete paired workflow lives at `/evaluation/experiments/paired`, backed by `/api/eval/paired` and `paired_studies`/`paired_runs` collections. It supports reviewed JO/MSA pairs, WANA adaptation, source-connected splits, frozen registration, exposure tracking, all four BM25/dense conditions and source-cluster bootstrap intervals. Keep failed attempts and exposure evidence.
+- Dense retrieval uses only loopback Ollama, installed bge-m3 or nomic-embed-text profiles, exact cosine over the same passages, digest checks and checksum-verified local caches. No automatic model download or truncation. Limits: 500 pairs, 10,000 passages, one active paired job. Real model/GPU inference has not been verified in implementation tests.
+- Verify paired ZIP evidence with `uv run python scripts/replay_paired.py path/to/experiment.zip`; it checks checksums and recomputes point estimates, not model inference or intervals. The older `experiments/02-jordanian-msa-retrieval/export_pairs.py` remains available for legacy exploratory runs.

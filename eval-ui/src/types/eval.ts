@@ -30,6 +30,7 @@ export interface Evidence {
 }
 
 export interface GoldenItem {
+  metadata?: Record<string, unknown>;
   id:           string;
   query:        string;
   lang:         string;

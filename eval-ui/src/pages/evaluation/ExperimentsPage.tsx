@@ -127,6 +127,7 @@ function ExperimentList() {
               </p>
             </div>
             <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+              <Button variant="outline" onClick={() => navigate('/evaluation/experiments/paired')}>Paired language study</Button>
               <div className="relative min-w-[180px] flex-1 sm:w-72 sm:flex-none">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <TextField

@@ -89,6 +89,8 @@ _LOCK = threading.RLock()
 
 #: Plain JSON collections for the generation half (one file per document).
 COLLECTIONS = (
+    "paired_studies",
+    "paired_runs",
     "gen_runs",
     "judges",
     "judge_sets",

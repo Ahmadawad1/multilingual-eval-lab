@@ -10,6 +10,7 @@ import { StatsLabPage }            from '@/pages/evaluation/StatsLabPage';
 import { GenerationPage }          from '@/pages/evaluation/GenerationPage';
 import { JudgeLabPage }            from '@/pages/evaluation/JudgeLabPage';
 import { ReleaseGatePage }         from '@/pages/evaluation/ReleaseGatePage';
+import { PairedStudyPage } from '@/pages/evaluation/PairedStudyPage';
 
 const evaluationRoute: RouteObject = {
   path: 'evaluation',
@@ -23,6 +24,7 @@ const evaluationRoute: RouteObject = {
     { path: 'normalization', element: <NormalizationPage /> },
     { path: 'experiments', element: <ExperimentsPage /> },
     { path: 'experiments/new', element: <ExperimentCreatePage /> },
+    { path: 'experiments/paired', element: <PairedStudyPage /> },
     { path: 'experiments/:experimentId', element: <ExperimentDetailPage /> },
     { path: 'stats',        element: <StatsLabPage /> },
     { path: 'generation',   element: <GenerationPage /> },

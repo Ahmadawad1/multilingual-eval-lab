@@ -829,6 +829,7 @@ def create_app(
         routes_insight,
         routes_labeling,
         routes_normalization,
+        routes_paired,
     )
     from agent_hub.eval.lab.llm import OllamaLLM
 
@@ -837,4 +838,5 @@ def create_app(
     app.include_router(routes_generation.build_router(store, kh, llm or OllamaLLM(), jobs))
     app.include_router(routes_gate.build_router(store))
     app.include_router(routes_normalization.build_router(store, jobs))
+    app.include_router(routes_paired.build_router(store, jobs, _bundle_json))
     return app

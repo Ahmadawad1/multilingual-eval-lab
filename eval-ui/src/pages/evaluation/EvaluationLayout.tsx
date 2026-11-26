@@ -35,7 +35,9 @@ export function EvaluationLayout() {
   }, [datasets.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const offline = status.isError;
-  const showDatasetSelect = !onGoldenSets && !onExperiments && !onNormalization && rows.length > 0;
+  const showDatasetSelect = !onGoldenSets &&
+    (!onExperiments || pathname === '/evaluation/experiments/paired') &&
+    !onNormalization && rows.length > 0;
 
   return (
     <div>

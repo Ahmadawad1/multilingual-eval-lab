@@ -71,7 +71,7 @@ def arabic(text):
 
 doc.add_heading("Comparing Jordanian Arabic and MSA retrieval", 0)
 p("A practical learning guide for a four-condition BM25 and dense retrieval study")
-p("Updated 25 November 2026")
+p("Updated 26 November 2026")
 h("What you will learn and produce")
 p(
     "You will ask the same questions in Jordanian Arabic and Modern Standard Arabic (MSA), "
@@ -97,17 +97,16 @@ p(
 h("Your route through the guide")
 p(
     "2  Study design and hypothesis\n3  Benchmark choice\n4  Preparing the dataset\n5  BM25 "
-    "practice\n6 and 7  Design fields and criteria\n8  The four-condition comparison\n9  "
-    "Dense setup and model identity\n10  Dense UI run and export\n11  Study execution and "
-    "checks\n12 and 13  Interpretation and diagnosis\n14  Publishing"
+    "practice\n6  Review paired questions\n7  Split and freeze\n8  Study design\n9  "
+    "Dense setup and model identity\n10  Register and run\n11  Inspect and export\n"
+    "12 and 13  Interpretation and diagnosis\n14  Publishing"
 )
 h("What the current lab supports")
 p(
-    "Golden Sets and Retrieval support Local BM25 and an existing local Indexed search path. "
-    "With Hybrid (RRF) off, the latter uses vector search. The paired exporter now supports "
-    "both engines and their comparison. The UI still cannot represent a query-form "
-    "interaction as its registered primary outcome; use a saved Design draft and the paired "
-    "export for this exploratory study."
+    "The full paired workflow is available under Retrieval Experiments → Paired language "
+    "study. It includes paired editing, source-aware splits, model selection, registration, "
+    "protected holdout runs, four-condition reports and complete exports. It uses local "
+    "Ollama for dense retrieval and does not require the older Know Hub indexed-search path."
 )
 
 page("2  Define the experiment before running it")
@@ -208,10 +207,10 @@ p(
 page("4  Prepare the paired dataset")
 h("Step 1  Record and sample the source")
 p(
-    "Open the official TyDi QA-WANA repository [1], follow Download the Dataset and choose a "
-    "labeled Jordanian release. Save the original file unchanged outside Git. Record its "
-    "URL, release or revision, file hash and annotation format. Read the release fields "
-    "before converting them; the lab does not directly import raw TyDi QA-WANA."
+    "Download a labeled Jordanian subset from the official TyDi QA-WANA repository [1]. Keep "
+    "the original file unchanged and record its source release, download date and hash. The "
+    "new UI can preview and adapt WANA v1 JSONL or JSON-array subsets below 11 MB. Larger "
+    "releases need local sampling before upload."
 )
 p(
     "Select answerable questions using a written rule and a fixed seed, such as 42. Record "
@@ -228,11 +227,11 @@ p(
 )
 h("Step 3  Build one shared passage collection")
 p(
-    "Use article text distributed with the selected data where available. Split articles "
-    "into paragraph passages with stable IDs. Keep answer-bearing text intact and retain "
-    "source article IDs. Include competing paragraphs and unrelated articles sampled under a "
-    "fixed rule. Record the segmentation method, sampling seed and corpus size. A corpus "
-    "containing only correct passages makes the task artificially easy."
+    "Use the article text included in the selected release. The WANA v1 importer creates "
+    "passages of up to 256 whitespace words with 32-word overlap, independently of answer "
+    "locations. It preserves source identity and derives candidate qrels from answer-byte "
+    "containment. Include competing passages and review alternative valid answers. Record "
+    "corpus size and any later passage corrections."
 )
 p(
     "Answer annotations may use byte offsets. Arabic UTF-8 byte positions are not character "
@@ -250,8 +249,8 @@ p(
 p(
     "Copy the structure in practice.json into study.json: documents contain id and text; "
     "queries contain id, question, qrels and metadata. Replace every practice record. Keep "
-    "provenance and human review notes in a companion file. This conversion and review are "
-    "preparation tasks, not an automatic lab feature."
+    "provenance and human review notes. Alternatively, use the WANA adaptation on the "
+    "paired study Data page, then review its candidate labels and edit both question forms."
 )
 
 page("5  Learn the lab with the practice dataset")
@@ -300,304 +299,276 @@ p(
     "normalization off here to isolate query form from your earlier normalization experiment."
 )
 
-page("6  Write the design in your UI")
-h("Step 1  Open the study notebook")
+
+page("6  Review paired questions in your UI")
+h("Open the complete workflow")
 p(
-    "Import your prepared study.json through Golden Sets. Review its documents, questions, "
-    "labels and metadata. Then open Retrieval Experiments → New experiment. Select the "
-    "intended Dataset version. Use the following text in Design and click Save draft. A "
-    "draft preserves your plan but is editable; save a dated copy of the protocol before "
-    "scoring for an auditable record."
+    "Open Retrieval Experiments and click Paired language study, or visit "
+    "http://127.0.0.1:8000/evaluation/experiments/paired. The four steps are Data, Design, "
+    "Run and Report. Select your Golden Set and version using the pickers at the top. This "
+    "page implements the full four-condition study; the older configuration-experiment "
+    "screen remains available for other tasks."
 )
-h("Name")
-p("Enter: Jordanian versus MSA across BM25 and dense retrieval v1")
+h("Import the benchmark adaptation")
 p(
-    "A name should tell you what is compared and which study version it is. Avoid a result "
-    "in the title before evidence exists."
-)
-h("Hypothesis")
-p(
-    "Enter: H1 (primary): Under BM25, Jordanian Hit@5 will be lower than MSA Hit@5; a "
-    "decrease of 0.05 is practically important. H2 (secondary): With the fixed dense model, "
-    "the Jordanian-minus-MSA gap will move upward relative to BM25, while Jordanian Hit@5 "
-    "improves. Both engines will score the same reviewed intent pairs and corpus. This is an "
-    "exploratory four-condition study."
+    "On Data, upload a labeled Jordanian TyDi QA-WANA JSONL subset or JSON array below 11 "
+    "MB. Choose a maximum pair count and sampling seed. Click Preview adaptation, inspect "
+    "the included question examples and exclusion reasons, then Import preview as draft. The "
+    "importer accepts official WANA v1 fields and legacy TyDi-style byte annotations. It "
+    "creates candidate qrels and an MSA placeholder; it does not pretend to author or review "
+    "equivalent Arabic wording."
 )
 p(
-    "Why this wording: it makes the outcome and its sign explicit. The five-point threshold "
-    "is your proposed practical decision rule, not a claim that the effect exists. A "
-    "hypothesis gives you something that observations can support, contradict or leave "
-    "uncertain."
+    "For WANA v1, passages contain up to 256 whitespace-delimited words with 32-word "
+    "overlap. Splitting is independent of answer locations. A minimal answer must fit inside "
+    "a passage and match its UTF-8 byte offsets. NULL, yes/no and malformed or unsupported "
+    "records are excluded with reasons. Record the source release and review coverage before "
+    "reporting results."
 )
-h("Rationale and prior evidence")
+h("Edit one complete intent at a time")
 p(
-    "Enter: BM25 relies on lexical overlap, so Jordanian wording may match MSA passages less "
-    "often. Dense embeddings may connect different words with similar meanings, but the "
-    "selected model may still have dialect weaknesses. Paired intents hold meaning and "
-    "evidence fixed. The earlier normalization study motivates investigation, not an "
-    "expected result. No rewriting or generation occurs during retrieval."
-)
-p(
-    "Why this field matters: the hypothesis states what you expect; the rationale explains "
-    "the mechanism and where the idea came from. Keeping them separate prevents an "
-    "attractive explanation from being mistaken for evidence."
-)
-h("Dataset version")
-p(
-    "Select the version containing both forms and their shared corpus. In Golden Sets → "
-    "Freeze → Lifecycle, freeze the reviewed study version and record its content hash. A "
-    "hash identifies the exact content used. If you discover a label error later, fork a new "
-    "version, document the correction and rerun; preserve the original result."
+    "Select a pair under Paired questions. Keep its existing query IDs. Enter the MSA and "
+    "Jordanian questions, shared qrels as JSON, source article or source group, and your "
+    "reviewer ID. For an existing unpaired import, enter the two existing question IDs to "
+    "link them. To create a pair, enter a new pair ID and two different query IDs."
 )
 p(
-    "Do not treat this saved experiment draft as registered. The next page explains the "
-    "current limitation and the correct execution route."
+    "Confirm the review checkbox only after checking equal meaning and the relevant "
+    "passages. Click Save pair. Both forms receive identical qrels. Changing question text "
+    "or labels resets the editor’s review confirmation. Saving also clears the pair’s split "
+    "so you must reassign splits. The passage and question list below the editor helps you "
+    "check IDs and read the corpus."
+)
+h("Why review comes first")
+p(
+    "Without equivalent meaning, you may measure two different tasks. Without shared labels, "
+    "different scoring rules could create an apparent dialect effect. The validation panel "
+    "flags missing forms, duplicate forms, mismatched labels, missing passages and missing "
+    "human review. A frozen dataset must be forked in Golden Sets before editing."
 )
 
-page("7  Set criteria and understand the arms")
-h("Criteria to enter in the Design screen")
+page("7  Create a fair split and freeze the data")
+h("Assign groups rather than individual questions")
 p(
-    "Primary metric: Hit rate. k: 5. Direction: decrease. Minimum effect: 0.05. Confidence "
-    "level: 95%. Leave Guardrails empty for this descriptive pilot. Choose MRR as an "
-    "exploratory secondary metric only if you will calculate and report it separately by "
-    "form."
+    "On Data, choose a sampling and split seed such as 42 and a Holdout fraction such as "
+    "0.3. Click Assign paired splits. The lab keeps both forms together and connects pairs "
+    "sharing any relevant passage or source article. All intents in a connected source group "
+    "go to the same split."
 )
 p(
-    "Hit@5 answers a simple question: did search supply any labeled relevant passage in its "
-    "first five results? It suits this evidence-availability study but misses rank changes "
-    "within the top five. The direction is decrease because the reported difference is "
-    "Jordanian minus MSA. A minimum effect is the smallest gap you intend to call "
-    "practically important."
+    "This avoids a subtle leak: if you tune on an MSA question, its Jordanian equivalent is "
+    "no longer an unseen evaluation question. Shared articles can also reveal answer "
+    "vocabulary. Enter source article IDs consistently; generic dataset descriptions are not "
+    "treated as article IDs."
+)
+h("Check counts and freeze")
+p(
+    "Check the displayed Dev, Holdout and Unassigned question counts. Every intent "
+    "contributes two questions. The number of source groups, rather than just query count, "
+    "limits how much independent evidence you have. The split requires at least two source "
+    "groups. Large connected groups can make the achieved fraction differ from your "
+    "requested fraction."
 )
 p(
-    "Confidence level controls the interval procedure. It is not a 95% probability that the "
-    "hypothesis is true. Guardrails are extra constraints, such as preventing a latency "
-    "increase, useful for deployment changes; this pilot does not need invented deployment "
-    "criteria."
+    "Resolve all pair validation issues and click Freeze version. Freezing records the "
+    "content hash and prevents edits. The full protocol can be registered only when this "
+    "frozen snapshot has complete reviewed pairs, both splits and no source group crossing "
+    "the split boundary."
 )
-h("Arms are the conditions being compared")
+h("What dev and holdout mean")
 p(
-    "Within each engine, MSA is the reference form and Jordanian is the comparison form. "
-    "Across engines, BM25 is the baseline and dense is the comparison. Keep normalization "
-    "off, fetch 50 and k = 5. There are two separate contrasts; do not compare BM25 with MSA "
-    "against dense with Jordanian and call that an engine effect."
+    "Dev is where you check the workflow and investigate settings. Holdout is reserved for "
+    "the registered final question. The lab records prior evaluated queries and related "
+    "sources across paired studies and checks older retrieval runs for matching questions. A "
+    "later fork or new study cannot silently turn already evaluated material into a clean "
+    "holdout."
 )
 p(
-    "The current UI arms select configurations and run each over the same items. They have "
-    "no query-form filter. You can set baseline to Local BM25 and treatment to Indexed "
-    "search with Hybrid off to describe the engine contrast. Use document level, both "
-    "normalizations off, min similarity 0 and fetch 50 in both. Record the intended "
-    "four-condition analysis in Rationale."
+    "If a holdout has prior exposure, another run requires a written reason and is labeled "
+    "exploratory. A tool cannot detect every external viewing or unpublished experiment; "
+    "disclose any exposure outside the lab. Registration protects the recorded design, not "
+    "the scientific quality of poorly constructed data."
 )
-h("Why you must stop at Save draft here")
+h("Plan sample size honestly")
 p(
-    "Registration can lock a supported configuration comparison, but the UI report averages "
-    "query forms together. Its criterion does not encode the primary dialect gap or the "
-    "engine-by-form interaction in this guide. Keep this study as a saved draft notebook and "
-    "use paired exports for the four cells. A mixed average improvement is not evidence that "
-    "dense reduced the dialect deficit."
-)
-h("Pilot and holdout boundary")
-p(
-    "Use this route as an exploratory pilot. The importer assigns all questions to dev. "
-    "Ad-hoc scoring cannot evaluate holdout items. A confirmatory dialect-interaction "
-    "workflow needs pair-aware grouping and a corresponding protected endpoint. Do not "
-    "bypass the holdout restriction or present a draft as registered. Keep future evaluation "
-    "intents and source articles out of pilot tuning."
+    "A 50-intent pilot is a proposed starting point. It is not a guarantee that a five-point "
+    "gap can be detected. Review the number of independent source groups and the resulting "
+    "interval. Avoid enlarging the sample repeatedly until the result you wanted appears. If "
+    "fewer than two groups remain in a scored split, the lab reports no uncertainty interval."
 )
 
-
-page("8  Design the four conditions")
-h("A two by two design")
+page("8  Fill in the study design")
+h("Name and hypothesis")
 p(
-    "Run the same query pairs twice, once per engine. BM25 plus MSA is cell A; BM25 plus "
-    "Jordanian is B; dense plus MSA is C; dense plus Jordanian is D. Each cell uses the same "
-    "N intents and the same corpus and labels. This design separates query-form differences "
-    "from engine differences."
+    "Open Design. Name: Jordanian versus MSA across BM25 and dense v1. Hypothesis: Under "
+    "BM25, Jordanian Hit@5 will be lower than MSA Hit@5; a decrease of five percentage "
+    "points is practically important. As a secondary question, the fixed dense model may "
+    "improve Jordanian retrieval and reduce the deficit. These are predictions to test, not "
+    "results."
 )
-h("Keep the original question as the primary analysis")
+h("Rationale")
 p(
-    "H1 remains the BM25 Jordanian-versus-MSA comparison: B minus A. Keep Hit@5, the "
-    "predicted decrease and the five-point practical threshold chosen before results. Adding "
-    "dense does not justify changing this primary endpoint after inspecting BM25 outcomes."
-)
-h("Add a secondary hypothesis and explain why")
-p(
-    "H2: The selected dense model will improve Jordanian Hit@5 and make the "
-    "Jordanian-minus-MSA gap less negative than BM25. Rationale: vector representations may "
-    "connect dialect words with formal equivalents even when their spellings differ. This is "
-    "a model-specific hypothesis; dense retrieval is not guaranteed to help Arabic or "
-    "dialect queries."
-)
-h("Calculate the contrasts")
-p(
-    "BM25 dialect gap = B − A. Dense dialect gap = D − C. Jordanian engine gain = D − B. MSA "
-    "engine gain = C − A. Gap change = (D − C) − (B − A). Multiply rate differences by 100 "
-    "to express percentage points. The exporter computes these from the same paired intents."
+    "Enter: BM25 relies on word overlap, while dense embeddings may connect different words "
+    "expressing similar meanings. Jordanian and MSA can differ in vocabulary and wording. "
+    "Paired intents hold meaning and target passages fixed. The earlier normalization study "
+    "motivates this investigation but does not establish a dialect effect."
 )
 p(
-    "A positive gap change means the Jordanian-minus-MSA gap moved upward. It can arise "
-    "because MSA got worse, or it can overshoot into a larger opposite gap. Inspect all four "
-    "rates and Jordanian engine gain before calling it a useful reduction in dialect "
-    "disadvantage. An equal improvement for both forms can help users without changing the "
-    "gap."
+    "The rationale explains how we came up with the hypothesis. It is plausible that dialect "
+    "vocabulary lowers lexical overlap; dense similarity might help, but a model can still "
+    "perform poorly on Arabic or Jordanian wording. That uncertainty is why the experiment "
+    "is useful."
 )
-h("Uncertainty and honest interpretation")
+h("Primary criterion")
 p(
-    "Resample whole intents, keeping all four observations together. The helper uses 5,000 "
-    "bootstrap resamples and seed 42. Its secondary intervals are exploratory and unadjusted "
-    "for multiple comparisons. Do not infer an interaction from one significant "
-    "within-engine interval and one nonsignificant interval; use the paired interval for "
-    "gap_change_pp itself."
+    "Choose Primary contrast: BM25 dialect gap; Expected direction: Decrease; Minimum "
+    "meaningful effect: 0.05; Hit rate cutoff k: 5; Confidence level: 95%; Bootstrap seed: "
+    "42. The primary contrast is the one prespecified decision. The dense gap, engine gains "
+    "and gap change are secondary exploratory analyses unless you deliberately select one as "
+    "primary before seeing results."
 )
-
-page("9  Prepare the local dense pipeline")
-h("What is available and what must be recorded")
+h("Understand all four conditions")
 p(
-    "Indexed search uses the sibling Brainwave Know Hub and local Ollama services. The "
-    "source default embedding model is nomic-embed-text, but runtime configuration can "
-    "override it. The UI does not select an embedding model. Check the actual service model "
-    "before calling the result a dense baseline; report its name and digest rather than "
-    "simply saying dense."
-)
-h("Step 1  Start or reuse the services")
-p(
-    "Reuse a healthy local stack. Otherwise, with Docker Desktop running, run the following "
-    "from the lab root. The helper depends on the sibling Brainwave checkout and previously "
-    "initialized model and node-module caches. If it reports a missing cache, resolve the "
-    "reference setup first; a failed service is not a poor retrieval result."
-)
-code("uv run python scripts/start_eval_services.py")
-h("Step 2  Record model identity")
-p(
-    "Find the Know Hub container with the first command, then substitute its ID in the "
-    "second. Only the model setting is printed. Compare it with the Ollama model list, and "
-    "record the matching digest, service revision, embedding dimension, prefix handling and "
-    "device in a study manifest. These details are not guaranteed to be captured in the lab "
-    "run JSON."
-)
-code('docker ps --filter label=com.docker.compose.service=know-hub --format "{{.ID}} {{.Names}}"')
-code("docker exec KNOW_HUB_ID printenv OLLAMA_MODEL")
-code("(Invoke-RestMethod http://127.0.0.1:11434/api/tags).models | Select-Object name,digest")
-h("Model choice for an Arabic study")
-p(
-    "Use the existing configured model for a pipeline pilot and name it explicitly; do not "
-    "generalize its result to all dense models. A suitable candidate for a later "
-    "multilingual baseline is intfloat/multilingual-e5-small: 384-dimensional vectors, "
-    "query: and passage: prefixes, and a 512-token input limit. Its card lists Mr. TyDi and "
-    "MIRACL training data, so disclose overlap and avoid training splits for reported "
-    "evaluation. [5]"
+    "A = BM25 with MSA; B = BM25 with Jordanian; C = dense with MSA; D = dense with "
+    "Jordanian. Dialect gaps are B − A and D − C. Jordanian engine gain is D − B; MSA gain "
+    "is C − A. Gap change is (D − C) − (B − A). Every difference uses the same intent pairs "
+    "and is shown in percentage points."
 )
 p(
-    "E5-small is not a drop-in UI option: the current Know Hub schema expects "
-    "768-dimensional vectors and its adapter must apply the correct prefixes. This guide "
-    "does not install or integrate another model. Do not change only the model name and "
-    "reuse the old index. A validated adapter and fresh index are prerequisites for that "
-    "model-specific extension."
+    "A positive gap change can occur because MSA got worse. It can also overshoot into an "
+    "opposite gap. Inspect all four rates and the Jordanian gain before claiming a useful "
+    "reduction in disadvantage. Never compare A directly with D and call that a pure engine "
+    "effect; both engine and query form changed."
 )
 
-page("10  Run dense retrieval in the UI")
-h("Step 1  Build and verify the corpus index")
+page("9  Select and identify a local dense model")
+h("Start the local model service")
 p(
-    "On the same Golden Set version, open Index. Under Index · off, click Index corpus and "
-    "wait until the state is current and every document is INDEXED. Failed, skipped or "
-    "incomplete ingestion must be fixed before scoring. Use this same off index for both "
-    "language forms."
+    "The paired workflow talks directly to Ollama at http://127.0.0.1:11434. It does not "
+    "require Know Hub or its database. Reuse an already running Ollama service. If needed, "
+    "start Ollama and install a supported embedding model. The UI does not download model "
+    "weights automatically."
 )
+code("ollama serve\nollama pull bge-m3")
 p(
-    "The current service chunks ingested text with a configured maximum of 512 and overlap "
-    "of 64 in its chunker, then document search ranks by the best chunk per document. BM25 "
-    "ranks the full imported passage. Keep passages short and verify one indexed chunk per "
-    "passage for a cleaner comparison. Otherwise describe the result as a comparison of two "
-    "retrieval pipelines, since chunking also differs. Record the actual chunking and "
-    "truncation; do not assume the chunker’s token count equals the model tokenizer’s count."
+    "Run the pull command in a second terminal if ollama serve occupies the first. "
+    "Downloading weights needs internet once; evaluation runs locally without paid APIs. "
+    "Your dedicated GPU memory is about 8 GB, not the total shared graphics-memory figure. "
+    "The lab records runtime information rather than assuming GPU execution."
 )
-h("Step 2  Set dense controls explicitly")
+h("Choose the model in Design")
 p(
-    "Open Retrieval → Probe and expand the configuration. Set Name to jo-msa-dense-v1; "
-    "Search engine to Indexed search; Level to document; Hybrid (RRF) OFF; Corpus index off; "
-    "Query normalisation off; Min similarity 0; Fetch depth 50; and k (cutoff) 5. Leaving "
-    "Hybrid on tests lexical-plus-vector fusion, not dense-only retrieval."
-)
-p(
-    "Open Score, choose dev and run. Confirm 2N queries without errors and retain the dense "
-    "run ID. Do not tune the model or threshold against these study outcomes. Test service "
-    "connectivity and settings with practice.json first. No GPU inference or dense benchmark "
-    "score has been validated by the creation of this guide."
-)
-h("Step 3  Export each engine and their comparison")
-p(
-    "From the repository root, use the commands below with actual run IDs. Each output "
-    "folder must be new. The first produces dense pairs.csv, summary.json and run.json. The "
-    "second produces the BM25 paired export plus dense-run.json and engine-comparison.json "
-    "containing all four Hit@5 rates, the two engine gains and gap change with paired "
-    "intervals."
-)
-code(
-    "uv run python experiments/02-jordanian-msa-retrieval/export_pairs.py DENSE_ID results-dense-v1"
-)
-code(
-    "uv run python experiments/02-jordanian-msa-retrieval/export_pairs.py BM25_ID "
-    "results-both-v1 --dense-run DENSE_ID"
+    "Click Refresh models, then select Local embedding model. Supported installed families "
+    "are bge-m3 and nomic-embed-text. BGE-M3 is a multilingual candidate for this study [5]. "
+    "Nomic can exercise the pipeline, but its result is not evidence about all multilingual "
+    "dense models. Record the chosen model before comparing outcomes."
 )
 p(
-    "These folders are local analysis outputs, not automatically published artifacts. Check "
-    "model identity separately: passing the export checks verifies paired inputs and "
-    "controls, not embedding model suitability or an unchanged external service."
+    "The lab captures the model name, digest, model information and required prefixes. Nomic "
+    "receives search_query and search_document prefixes; BGE-M3 uses its supported "
+    "unprefixed mode. The service is restricted to loopback and locally installed supported "
+    "embedding models. A cloud model or arbitrary remote endpoint is not part of this "
+    "workflow."
+)
+h("What remains identical across engines")
+p(
+    "Both engines rank the same imported passages. The dense index uses exact cosine "
+    "similarity, normalized vectors, no extra chunking and no silent truncation. An overlong "
+    "passage causes a visible error; revise the shared dataset and create a new version "
+    "rather than truncating only one engine’s input. BM25 uses its existing tokenizer with "
+    "NFC and case folding, k1 = 1.5 and b = 0.75."
+)
+p(
+    "Index identity includes corpus content, model metadata, prefixes and engine settings. "
+    "Cached vectors have a checksum. The model is checked before and after scoring; a "
+    "changed identity invalidates the run. The export retains index dimension, vector "
+    "checksum, model identity and available runtime details. It does not contain weights or "
+    "claim Arabic calibration."
 )
 
+page("10  Register and run all four conditions")
+h("Save the protocol")
+p(
+    "With the intended dataset selected, click Save new study draft in Design. The lab "
+    "validates the reviewed pairs and captures the dataset hash and installed model "
+    "identity. The saved protocol appears under Run. Changing your plan requires saving a "
+    "new study; the recorded version is not silently overwritten."
+)
+h("Register before final evaluation")
+p(
+    "Read the saved hypothesis, rationale, primary contrast, model digest and dataset hash. "
+    "Click Register protocol. Registration requires a frozen, correctly split dataset and an "
+    "unchanged model. The protocol hash records this design. This replaces the old guide’s "
+    "manual draft-only workaround."
+)
+h("Run the development split first")
+p(
+    "Click Run all four on dev. The lab prepares or reuses the dense passage index and "
+    "scores both forms through both engines. Progress and failures appear on the page. One "
+    "intent produces four scored observations. A failed run is retained with its error and "
+    "available traces; it never produces a completed verdict."
+)
+p(
+    "Use the practice dataset to check mechanics, then use your reviewed benchmark sample. "
+    "The index uses the entire fixed corpus, while only the selected split’s questions are "
+    "scored. Selecting k determines the returned ranking depth and Hit@k cutoff for both "
+    "engines. Scores from BM25 and cosine similarity are not directly comparable; "
+    "relevance-based outcomes are."
+)
+h("Run holdout when ready")
+p(
+    "Click Run all four on holdout after registration. The first eligible access is labeled "
+    "a registered holdout evaluation. If those questions or related sources were already "
+    "evaluated, enter a reason of at least ten characters. The repeat is logged and labeled "
+    "exploratory. All run attempts remain available in the study and export."
+)
+p(
+    "The hypothesis may fail. A lower dense score, an unchanged gap or an inconclusive "
+    "interval is a valid outcome. Do not choose a model, primary contrast or threshold after "
+    "inspecting holdout results and then present the selection as the original registered "
+    "question."
+)
 
-page("11  Score and export your study")
-h("Step 1  Freeze the protocol and input")
+page("11  Inspect and export the complete result")
+h("Read the four scores")
 p(
-    "Before scoring, save a dated protocol containing the hypothesis, rationale, source "
-    "revision, sampling rule, review procedure, exclusions, primary metric and threshold. "
-    "Record the corpus size, pair count, dataset version and hash, and lab revision. This "
-    "prevents hindsight from quietly changing the question."
-)
-code("git rev-parse HEAD")
-h("Step 2  Run the reviewed version")
-p(
-    "In Golden Sets, freeze the reviewed version via Freeze → Lifecycle. Select it in "
-    "Retrieval. Run BM25 as described on page 5, then dense as described on page 10. Use "
-    "dev, k = 5 and fetch 50 for both. Each run must score 2N queries without errors. "
-    "Preserve two separate run IDs and the same dataset hash. Complete and verify dense "
-    "indexing before scoring."
+    "Open Report and choose a completed run. The four cards show BM25/MSA, BM25/Jordanian, "
+    "Dense/MSA and Dense/Jordanian Hit@k. The table shows both dialect gaps, each form’s "
+    "engine gain and the gap change, with source-cluster bootstrap intervals. The registered "
+    "primary contrast is marked."
 )
 p(
-    "Each overall UI score mixes MSA and Jordanian. Preserve both run IDs and use the paired "
-    "exporter to separate forms. Runs are listed at http://127.0.0.1:8000/api/eval/runs. Do "
-    "not infer a dialect benefit from the mixed average or compare raw BM25 scores with "
-    "cosine similarities; compare qrels-based metrics."
+    "The practical-threshold statement checks whether the entire primary interval reaches "
+    "the chosen effect in the expected direction. It is not a general claim about Arabic "
+    "users. Dev runs and repeated holdout access remain exploratory. Secondary intervals are "
+    "not corrected for multiple comparisons."
 )
-h("Step 3  Export the paired comparison")
+h("Inspect one intent across all four conditions")
 p(
-    "Keep the server running. In a second PowerShell terminal, use the following command "
-    "from the repository root. Replace RUN_ID with the actual saved ID; choose a new output "
-    "directory for each run."
+    "Use Previous and Next in Inspect an intent across all four conditions. Compare the "
+    "question forms, correct passage IDs, hit or miss, first relevant rank and returned "
+    "passages. Excerpts are limited to 600 characters; the exported dataset retains full "
+    "text. This helps distinguish vocabulary mismatch from bad labels, changed meaning or "
+    "missing evidence."
 )
-code(
-    "uv run python experiments/02-jordanian-msa-retrieval/export_pairs.py RUN_ID "
-    "experiments/02-jordanian-msa-retrieval/results-study-v1"
-)
+h("Export a reproducible package")
 p(
-    "The script produces run.json with raw rankings and settings; pairs.csv with both "
-    "question forms, first relevant ranks within five, binary hits and outcomes; and "
-    "summary.json with group Hit@5, the paired gap and its bootstrap interval."
-)
-h("Step 4  Check that the export is trustworthy")
-p(
-    "The exporter rejects failed or incomplete pairs, inconsistent qrels, a changed dataset "
-    "hash, non-document scoring and dense runs with Hybrid enabled. Engine comparison also "
-    "requires the same dataset version, split, cutoff, fetch depth, normalization settings "
-    "and query text. For N intents expect N paired rows per engine and 2N queries in each "
-    "run. Correct inputs in a new version and rerun both engines."
+    "Click Export complete experiment ZIP. It includes the protocol, exact dataset snapshot, "
+    "an importable dataset, model and index identity, all raw runs including failures, "
+    "paired CSV results, checksums, a README and replay_paired.py. Every run stays in the "
+    "record, which helps prevent selective reporting."
 )
 p(
-    "The exporter calculates paired Hit@5 and, with --dense-run, engine gains and the change "
-    "in the dialect gap. It does not calculate group MRR or nDCG or verify the live "
-    "embedding model identity. Save model and indexing metadata separately. No measured "
-    "benchmark results or GPU validation are supplied by this guide."
+    "After extracting replay_paired.py, run it against the ZIP using the command below. This "
+    "verifies checksums and recomputes Hit@k point estimates from saved rankings and qrels. "
+    "It does not rerun model inference or certify the statistical assumptions."
+)
+code("python replay_paired.py path/to/experiment.zip")
+p(
+    "To repeat inference, use the exact model digest and exported settings and restore the "
+    "recorded dataset and split. Importing import.json through Golden Sets creates a new dev "
+    "draft; original splits are retained as metadata, while dataset.json is the exact audit "
+    "snapshot. Preserve the original archive and lab revision."
 )
 
 page("12  Understand what your numbers say")
@@ -620,11 +591,11 @@ p(
     "msa_only) / N."
 )
 p(
-    "The two forms of one intent belong together. The exporter resamples whole pairs 5,000 "
-    "times using seed 42 and reports a 95% percentile bootstrap interval. Sampling "
-    "individual queries separately would lose the paired structure. Repeated intents or many "
-    "questions from the same article can still make a pair-only interval too optimistic; "
-    "document clustering and consider an article-cluster analysis for stronger claims."
+    "All four observations for an intent belong together. The UI resamples connected source "
+    "groups 2,000 times with the recorded seed, keeping all pairs within each source group "
+    "intact. It reports pair-weighted mean intervals at the chosen confidence level. This "
+    "respects known article dependence; unrecorded relationships can still make uncertainty "
+    "too optimistic. A split with fewer than two source groups has no interval."
 )
 h("Read direction and practical size separately")
 p(
@@ -651,9 +622,10 @@ p(
 page("13  Diagnose failures and write the finding")
 h("Step 1  Inspect contrasting pairs")
 p(
-    "Open pairs.csv as UTF-8 and filter msa_only, then jo_only. For each available group, "
-    "inspect both queries, their relevant passages and their ranked results in run.json. "
-    "Also inspect both for rank changes and neither for missing evidence. This connects "
+    "Open the exported results CSV and find pairs where an engine has msa = 1 and jo = 0, "
+    "then the reverse. Inspect both queries, relevant passages and rankings on Report or "
+    "in the corresponding runs JSON file. Also inspect shared successes for rank changes "
+    "and shared misses for missing evidence. This connects "
     "aggregate numbers to concrete behavior."
 )
 p(
@@ -671,11 +643,12 @@ p(
 )
 h("Step 3  Write the result using exported values")
 p(
-    "Use this template: “Across [N] reviewed intents and [D] passages, Local BM25 found "
-    "labeled relevant evidence in the top five for [X/N] MSA queries and [Y/N] Jordanian "
-    "queries. Jordanian minus MSA Hit@5 was [delta] percentage points, with a paired 95% "
-    "bootstrap interval of [lower, upper]. This was an exploratory retrieval adaptation of "
-    "[source and revision].”"
+    "Use this template separately for each engine: “Across [N] reviewed intents and [D] "
+    "passages, [engine and model] found labeled relevant evidence in the top five for [X/N] "
+    "MSA queries and [Y/N] Jordanian queries. Jordanian minus MSA was [delta] percentage "
+    "points with a [confidence]% source-cluster interval of [lower, upper].” Then report "
+    "both engine gains and the gap change. Identify the registered primary contrast and "
+    "whether this was dev, first holdout, or repeat holdout."
 )
 p(
     "Then state whether the interval supports the expected direction and whether it supports "
@@ -706,11 +679,11 @@ p(
 page("14  Publish a reproducible experiment")
 h("Keep the learning folder and public repository separate")
 p(
-    "This folder stores your guide, practice input and export helper. Create a separate "
-    "publication repository such as jordanian-msa-retrieval. Include README.md, the dated "
-    "four-condition protocol, preparation and review notes, permitted data, lab revision, "
-    "model identity and digest, index settings and both raw runs. Include both per-engine "
-    "paired exports and engine-comparison.json."
+    "This folder stores your guide and older export helper. The new UI exports the complete "
+    "four-condition experiment as a ZIP. Create a separate publication repository such as "
+    "jordanian-msa-retrieval, using the reviewed protocol, permitted data, both engine "
+    "results and model identity from that archive. Retain all failed and completed attempts, "
+    "and add your interpretation and limitations."
 )
 p(
     "Document source IDs, hashes, sampling, passage construction, exclusions, fixed BM25 "
@@ -745,10 +718,7 @@ p(
     "differ."
 )
 h("Sources and further learning")
-p(
-    "[5] Multilingual E5 small model card and usage\n"
-    "https://huggingface.co/intfloat/multilingual-e5-small"
-)
+p("[5] BGE-M3 model card and multilingual retrieval usage\nhttps://huggingface.co/BAAI/bge-m3")
 p(
     "[1] TyDi QA-WANA dataset and download instructions\n"
     "https://github.com/google-research-datasets/tydiqa-wana\n[2] Mr. TyDi collections and "
